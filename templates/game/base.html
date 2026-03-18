@@ -19,6 +19,7 @@
     <a href="{% url 'game:stats' %}" {% if request.resolver_match.url_name == 'stats' %}class="active"{% endif %}>📊 Stats</a>
     <a href="{% url 'game:inventory' %}" {% if request.resolver_match.url_name == 'inventory' %}class="active"{% endif %}>🎒 Inventory</a>
     <a href="{% url 'game:chests' %}" {% if request.resolver_match.url_name == 'chests' %}class="active"{% endif %}>📦 Chests</a>
+    <a href="{% url 'game:forge' %}" {% if request.resolver_match.url_name == 'forge' %}class="active"{% endif %}>🔨 Forge</a>
   </div>
   {% if user.player %}
   <div class="player-info">

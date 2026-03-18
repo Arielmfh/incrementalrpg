@@ -308,3 +308,299 @@ a:hover { text-decoration: underline; }
 .outcome-win { color: var(--success); font-weight: 700; }
 .outcome-loss { color: var(--danger); font-weight: 700; }
 .outcome-flee { color: var(--warning); font-weight: 700; }
+
+/* ══════════════════════════════════════════════════════════════════
+   SKILL TREE — DAG with SVG connector lines
+══════════════════════════════════════════════════════════════════ */
+
+/* Branch header row */
+.dag-branch-headers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem 1.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+}
+.dag-branch-label {
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--secondary);
+  padding: 0.5rem;
+  border-bottom: 2px solid var(--border);
+}
+.dag-branch-label small {
+  display: block;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Wrapper holds both SVG overlay and the grid */
+.dag-wrapper {
+  position: relative;
+}
+
+/* SVG sits on top, pointer-events disabled so cards stay clickable */
+.dag-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+
+/* The 3-column × 3-row grid */
+.dag-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, auto);
+  gap: 3rem 1.5rem;
+  padding: 1rem 0.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* Individual skill node */
+.dag-node {
+  background: var(--bg-card2);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+  position: relative;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+/* ── State: locked ── */
+.dag-node.state-locked {
+  border: 2px solid var(--border);
+  filter: grayscale(80%) brightness(0.7);
+  cursor: not-allowed;
+}
+
+/* ── State: available ── */
+.dag-node.state-available {
+  border: 2px solid var(--primary);
+  cursor: pointer;
+  animation: dag-glow-pulse 2s ease-in-out infinite;
+}
+.dag-node.state-available:hover {
+  transform: translateY(-4px);
+  border-color: var(--secondary);
+}
+@keyframes dag-glow-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(108,63,197,0.4); }
+  50%       { box-shadow: 0 0 18px rgba(108,63,197,0.8); }
+}
+
+/* ── State: purchased ── */
+.dag-node.state-purchased {
+  border: 2px solid var(--success);
+  background: #1a2e1a;
+  box-shadow: 0 0 12px rgba(56,161,105,0.35);
+}
+
+.dag-node-icon { font-size: 2rem; margin-bottom: 0.35rem; }
+.dag-node-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem; }
+.dag-node-desc { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.dag-node-cost { font-size: 0.78rem; color: var(--secondary); }
+
+@media (max-width: 768px) {
+  .dag-grid,
+  .dag-branch-headers { grid-template-columns: 1fr; }
+  .dag-svg { display: none; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   FORGE — The Infinite Blade
+══════════════════════════════════════════════════════════════════ */
+
+.forge-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 768px) {
+  .forge-layout { grid-template-columns: 1fr; }
+}
+
+/* Left blade panel */
+.forge-blade-panel {
+  position: sticky;
+  top: 5rem;
+}
+
+/* Material grade badge */
+.material-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.material-bronze   { background: #7c4a1e; color: #f7c77e; }
+.material-steel    { background: #2d4a6e; color: #a8d4f7; }
+.material-mythril  { background: #3d1a6e; color: #c4a8f7; }
+.material-star-iron { background: #4a1a1a; color: #f7d4a8;
+  box-shadow: 0 0 8px rgba(247,212,168,0.5); }
+
+/* Blade icon display */
+.blade-icon-display {
+  font-size: 4rem;
+  line-height: 1;
+  transition: transform 0.3s;
+}
+.blade-level-up {
+  animation: blade-burst 0.8s ease-out;
+}
+@keyframes blade-burst {
+  0%   { transform: scale(1); filter: brightness(1); }
+  40%  { transform: scale(1.4); filter: brightness(2) drop-shadow(0 0 16px gold); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* Blade voice (sentience messages) */
+.blade-voice {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-top: 0.5rem;
+  min-height: 1.2em;
+  transition: color 0.5s;
+}
+
+/* Heat gauge */
+.heat-gauge-wrap {
+  background: #0d0f1a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  height: 18px;
+  overflow: hidden;
+}
+.heat-gauge-bar {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #444, #666);
+  transition: width 0.4s ease, background 0.6s ease;
+}
+
+/* Stats grid (2×2) */
+.forge-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.forge-stat-box {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem;
+  text-align: center;
+}
+.forge-stat-box .big {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--secondary);
+}
+.forge-stat-box .label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+/* Strike button */
+.forge-strike-btn {
+  width: 100%;
+  padding: 1.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  transition: filter 0.15s, transform 0.1s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  margin-bottom: 0.75rem;
+}
+.forge-strike-btn:hover  { filter: brightness(1.15); transform: translateY(-2px); }
+.forge-strike-btn:active { transform: translateY(0); filter: brightness(0.95); }
+
+/* Hammer animation */
+.hammer-emoji {
+  display: inline-block;
+  font-size: 1.4rem;
+  transform-origin: bottom center;
+}
+.hammer-swing {
+  animation: hammer-strike 0.28s ease-out;
+}
+@keyframes hammer-strike {
+  0%   { transform: rotate(0deg)   translateY(0); }
+  25%  { transform: rotate(-30deg) translateY(-8px); }
+  55%  { transform: rotate(8deg)   translateY(4px); }
+  100% { transform: rotate(0deg)   translateY(0); }
+}
+
+/* Temper button */
+.temper-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  animation: temper-pulse 1.5s ease-in-out infinite;
+}
+@keyframes temper-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(224,163,42,0.4); }
+  50%       { box-shadow: 0 0 20px rgba(224,163,42,0.9); }
+}
+
+/* Ember Dust flash */
+.ember-flash {
+  text-align: center;
+  color: var(--secondary);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.4rem;
+  animation: ember-pop 0.3s ease-out;
+}
+@keyframes ember-pop {
+  0%   { transform: scale(0.8); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* Auto-strike banner */
+.auto-strike-banner {
+  background: #1a2a1a;
+  border: 1px solid var(--success);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--success);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Active bonus rows */
+.forge-bonus-row {
+  display: flex;
+  flex-direction: column;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  gap: 0.1rem;
+}
+.forge-bonus-row:last-child { border-bottom: none; }

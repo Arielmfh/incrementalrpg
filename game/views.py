@@ -4,9 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .models import Player, Enemy, Item, Skill, PlayerInventory, CombatLog, Chest, PlayerChest
+import random
+
+from .models import Player, Enemy, Item, Skill, PlayerInventory, CombatLog, Chest, PlayerChest, ForgeState
 from .combat import run_combat, pick_random_enemy, roll_loot, open_chest
 
 
@@ -195,7 +198,11 @@ def skill_tree(request):
     all_skills = Skill.objects.all().order_by('tier', 'level_required')
     learned_ids = set(player.skills.values_list('id', flat=True))
 
-    # Annotate skills with learnable status
+    # Map skill_type to branch column (1=Strike, 2=Bellows, 3=Metallurgy)
+    BRANCH_MAP = {'attack': 1, 'utility': 2, 'defense': 3}
+    BRANCH_NAMES = {1: 'The Art of the Strike', 2: 'The Automated Bellows', 3: 'Metallurgical Secrets'}
+    BRANCH_ICONS = {1: '⚔️', 2: '🔥', 3: '⚗️'}
+
     skill_data = []
     for skill in all_skills:
         can_learn = (
@@ -204,15 +211,21 @@ def skill_tree(request):
             and player.stat_points >= skill.stat_points_cost
             and (skill.parent_skill_id is None or skill.parent_skill_id in learned_ids)
         )
+        branch = BRANCH_MAP.get(skill.skill_type, 1)
         skill_data.append({
             'skill': skill,
             'learned': skill.id in learned_ids,
             'can_learn': can_learn,
+            'branch': branch,
+            'branch_name': BRANCH_NAMES.get(branch, ''),
+            'branch_icon': BRANCH_ICONS.get(branch, ''),
         })
 
     return render(request, 'game/skill_tree.html', {
         'player': player,
         'skill_data': skill_data,
+        'branch_names': BRANCH_NAMES,
+        'branch_icons': BRANCH_ICONS,
     })
 
 
@@ -396,5 +409,132 @@ def combat_history(request):
     return render(request, 'game/combat_history.html', {
         'player': player,
         'logs': logs,
+    })
+
+
+# ─── Forge (The Infinite Blade) ──────────────────────────────────────────────
+
+def _compute_forge_bonuses(player_skills):
+    """Return a dict of forge bonus values derived from learned skills."""
+    skill_names = {s.name for s in player_skills}
+    return {
+        'heat_per_click': 10.0 + sum(s.attack_bonus for s in player_skills),
+        'density_multiplier': 1.5 if 'Quenching Mastery' in skill_names else 1.0,
+        'ember_chance': sum(s.crit_chance_bonus for s in player_skills),
+        'has_apprentice': 'Apprentice' in skill_names,
+        'has_steam': 'Steam Powered Bellows' in skill_names,
+        'has_catalyst': 'Magical Catalyst' in skill_names,
+        'has_soul_binding': 'Soul Binding' in skill_names,
+    }
+
+
+@login_required
+def forge_view(request):
+    player = get_object_or_404(Player, user=request.user)
+    forge_state, created = ForgeState.objects.get_or_create(player=player)
+
+    player_skills = list(player.skills.all())
+    bonuses = _compute_forge_bonuses(player_skills)
+
+    # ── Offline progress (Steam Powered Bellows) ──────────────────────────
+    if not created and bonuses['has_steam']:
+        elapsed = (timezone.now() - forge_state.last_active).total_seconds()
+        offline_strikes = int(elapsed / 2.0)  # 1 auto-strike per 2s
+        if offline_strikes > 0:
+            offline_heat = offline_strikes * bonuses['heat_per_click']
+            forge_state.heat = min(
+                forge_state.heat + offline_heat, forge_state.get_heat_limit()
+            )
+            # Auto-temper if Magical Catalyst is active
+            if bonuses['has_catalyst']:
+                while forge_state.can_temper():
+                    retain = 0.25 if bonuses['has_soul_binding'] else 0.0
+                    forge_state.temper_count += 1
+                    if forge_state.material_grade < 3:
+                        forge_state.material_grade += 1
+                    forge_state.heat *= retain
+                    forge_state.density *= retain
+                    if forge_state.heat < forge_state.get_heat_limit():
+                        break  # prevent infinite loop at grade 3
+            forge_state.save()
+
+    auto_interval = 1.0 if bonuses['has_steam'] else 2.0
+
+    return render(request, 'game/forge.html', {
+        'player': player,
+        'forge': forge_state,
+        'has_auto_strike': bonuses['has_apprentice'],
+        'has_steam': bonuses['has_steam'],
+        'has_catalyst': bonuses['has_catalyst'],
+        'auto_interval': auto_interval,
+    })
+
+
+@login_required
+@require_POST
+def forge_strike(request):
+    player = get_object_or_404(Player, user=request.user)
+    forge_state, _ = ForgeState.objects.get_or_create(player=player)
+
+    player_skills = list(player.skills.all())
+    bonuses = _compute_forge_bonuses(player_skills)
+
+    heat_limit = forge_state.get_heat_limit()
+    new_heat = min(forge_state.heat + bonuses['heat_per_click'], heat_limit)
+    forge_state.heat = new_heat
+    forge_state.density += 1.0 * bonuses['density_multiplier']
+    forge_state.total_strikes += 1
+
+    ember_gained = 0
+    if bonuses['ember_chance'] > 0 and random.random() < bonuses['ember_chance']:
+        forge_state.ember_dust += 1.0
+        ember_gained = 1
+
+    forge_state.save()
+
+    return JsonResponse({
+        'heat': round(forge_state.heat, 1),
+        'heat_limit': round(heat_limit, 1),
+        'heat_percent': forge_state.heat_percent(),
+        'density': round(forge_state.density, 1),
+        'ember_dust': round(forge_state.ember_dust, 1),
+        'total_strikes': forge_state.total_strikes,
+        'can_temper': forge_state.can_temper(),
+        'material_grade': forge_state.get_material_name(),
+        'blade_voice': forge_state.get_blade_voice(),
+        'ember_gained': ember_gained,
+    })
+
+
+@login_required
+@require_POST
+def forge_temper(request):
+    player = get_object_or_404(Player, user=request.user)
+    forge_state, _ = ForgeState.objects.get_or_create(player=player)
+
+    if not forge_state.can_temper():
+        return JsonResponse({'error': 'Heat limit not reached yet!'}, status=400)
+
+    player_skills = list(player.skills.all())
+    bonuses = _compute_forge_bonuses(player_skills)
+    retain = 0.25 if bonuses['has_soul_binding'] else 0.0
+
+    forge_state.temper_count += 1
+    if forge_state.material_grade < 3:
+        forge_state.material_grade += 1
+    forge_state.heat = forge_state.heat * retain
+    forge_state.density = forge_state.density * retain
+    forge_state.save()
+
+    return JsonResponse({
+        'heat': round(forge_state.heat, 1),
+        'heat_limit': round(forge_state.get_heat_limit(), 1),
+        'heat_percent': forge_state.heat_percent(),
+        'density': round(forge_state.density, 1),
+        'material_grade': forge_state.get_material_name(),
+        'temper_count': forge_state.temper_count,
+        'can_temper': forge_state.can_temper(),
+        'blade_voice': forge_state.get_blade_voice(),
+        'message': f'Blade tempered! New grade: {forge_state.get_material_name()}',
     })
 

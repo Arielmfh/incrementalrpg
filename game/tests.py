@@ -2,7 +2,7 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from .models import Player, Enemy, Item, Skill, PlayerInventory, Chest, PlayerChest
+from .models import Player, Enemy, Item, Skill, PlayerInventory, Chest, PlayerChest, ForgeState
 from .combat import run_combat, pick_random_enemy, roll_loot, scale_enemy_stats, open_chest
 
 
@@ -254,3 +254,139 @@ class ViewsTest(TestCase):
         self.player.refresh_from_db()
         self.assertGreater(self.player.current_hp, self.player.max_hp - 30)
 
+
+
+class ForgeStateModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='smith', password='pass')
+        self.player = Player.objects.create(user=self.user, name='Smith', level=1)
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+        self.forge = ForgeState.objects.create(player=self.player)
+
+    def test_initial_state(self):
+        self.assertEqual(self.forge.heat, 0.0)
+        self.assertEqual(self.forge.material_grade, 0)
+        self.assertEqual(self.forge.get_material_name(), 'Bronze')
+
+    def test_heat_limit_base(self):
+        self.assertEqual(self.forge.get_heat_limit(), ForgeState.HEAT_LIMIT_BASE)
+
+    def test_heat_limit_increases_with_grade(self):
+        self.forge.material_grade = 1
+        self.assertGreater(self.forge.get_heat_limit(), ForgeState.HEAT_LIMIT_BASE)
+
+    def test_heat_limit_carbon_folding_bonus(self):
+        carbon = Skill.objects.create(
+            name='Carbon Folding', description='x', skill_type='defense',
+            tier=1, level_required=1, stat_points_cost=1,
+        )
+        self.player.skills.add(carbon)
+        base_limit = ForgeState.HEAT_LIMIT_BASE
+        self.assertAlmostEqual(self.forge.get_heat_limit(), base_limit * 1.5, places=1)
+
+    def test_heat_percent(self):
+        self.forge.heat = self.forge.get_heat_limit() / 2
+        self.assertAlmostEqual(self.forge.heat_percent(), 50.0, delta=1)
+
+    def test_can_temper_false_when_heat_low(self):
+        self.forge.heat = self.forge.get_heat_limit() - 1
+        self.assertFalse(self.forge.can_temper())
+
+    def test_can_temper_true_at_limit(self):
+        self.forge.heat = self.forge.get_heat_limit()
+        self.assertTrue(self.forge.can_temper())
+
+    def test_blade_voice_low(self):
+        # Fresh forge — minimal voice
+        self.assertEqual(self.forge.get_blade_voice(), '…')
+
+    def test_blade_voice_mid(self):
+        self.forge.density = 150
+        self.assertIn('harder', self.forge.get_blade_voice())
+
+    def test_material_grade_names(self):
+        for grade, name in ForgeState.MATERIAL_GRADES:
+            self.forge.material_grade = grade
+            self.assertEqual(self.forge.get_material_name(), name)
+
+
+class ForgeViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='forger', password='pass123')
+        self.player = Player.objects.create(
+            user=self.user, name='Forger', level=5,
+            strength=5, dexterity=5, intelligence=5, vitality=5,
+            stat_points=10,
+        )
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+        self.client.login(username='forger', password='pass123')
+
+    def test_forge_view_get(self):
+        resp = self.client.get(reverse('game:forge'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b'Infinite Blade', resp.content)
+
+    def test_forge_strike_increases_heat(self):
+        resp = self.client.post(
+            reverse('game:forge_strike'),
+            content_type='application/json',
+            data='{}',
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn('heat', data)
+        self.assertGreater(data['heat'], 0)
+
+    def test_forge_strike_increments_total_strikes(self):
+        self.client.post(reverse('game:forge_strike'), content_type='application/json', data='{}')
+        forge = ForgeState.objects.get(player=self.player)
+        self.assertEqual(forge.total_strikes, 1)
+
+    def test_forge_temper_requires_full_heat(self):
+        # Temper should fail when heat is 0
+        resp = self.client.post(reverse('game:forge_temper'), content_type='application/json', data='{}')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('error', resp.json())
+
+    def test_forge_temper_success(self):
+        forge = ForgeState.objects.create(player=self.player, heat=1000.0)
+        resp = self.client.post(reverse('game:forge_temper'), content_type='application/json', data='{}')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn('temper_count', data)
+        self.assertEqual(data['temper_count'], 1)
+
+    def test_forge_temper_advances_grade(self):
+        ForgeState.objects.create(player=self.player, heat=1000.0, material_grade=0)
+        self.client.post(reverse('game:forge_temper'), content_type='application/json', data='{}')
+        forge = ForgeState.objects.get(player=self.player)
+        self.assertEqual(forge.material_grade, 1)
+
+    def test_forge_temper_caps_at_star_iron(self):
+        ForgeState.objects.create(player=self.player, heat=99999.0, material_grade=3)
+        resp = self.client.post(reverse('game:forge_temper'), content_type='application/json', data='{}')
+        self.assertEqual(resp.status_code, 200)
+        forge = ForgeState.objects.get(player=self.player)
+        self.assertEqual(forge.material_grade, 3)
+
+    def test_soul_binding_retains_heat(self):
+        soul = Skill.objects.create(
+            name='Soul Binding', description='x', skill_type='defense',
+            tier=3, level_required=1, stat_points_cost=1,
+        )
+        self.player.skills.add(soul)
+        initial_heat = 1000.0
+        ForgeState.objects.create(player=self.player, heat=initial_heat, material_grade=0)
+        self.client.post(reverse('game:forge_temper'), content_type='application/json', data='{}')
+        forge = ForgeState.objects.get(player=self.player)
+        self.assertAlmostEqual(forge.heat, initial_heat * 0.25, delta=1)
+
+    def test_forge_view_requires_login(self):
+        self.client.logout()
+        resp = self.client.get(reverse('game:forge'))
+        self.assertRedirects(resp, '/login/?next=/game/forge/')

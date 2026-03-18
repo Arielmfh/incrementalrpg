@@ -262,3 +262,62 @@ class PlayerChest(models.Model):
     def __str__(self):
         return f"{self.player.name} - {self.chest.name} x{self.quantity}"
 
+
+class ForgeState(models.Model):
+    """Tracks the state of a player's Infinite Blade forge."""
+
+    MATERIAL_GRADES = [
+        (0, 'Bronze'),
+        (1, 'Steel'),
+        (2, 'Mythril'),
+        (3, 'Star-Iron'),
+    ]
+    HEAT_LIMIT_BASE = 1000.0
+
+    player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name='forge_state')
+    heat = models.FloatField(default=0.0)
+    density = models.FloatField(default=0.0)
+    material_grade = models.IntegerField(default=0)
+    temper_count = models.IntegerField(default=0)
+    ember_dust = models.FloatField(default=0.0)
+    total_strikes = models.IntegerField(default=0)
+    last_active = models.DateTimeField(auto_now=True)
+
+    def get_material_name(self):
+        return dict(self.MATERIAL_GRADES).get(self.material_grade, 'Unknown')
+
+    def get_heat_limit(self):
+        """Max heat before tempering, scaled by material grade and Carbon Folding skill."""
+        base = self.HEAT_LIMIT_BASE * (1 + self.material_grade * 0.5)
+        if self.player.skills.filter(name='Carbon Folding').exists():
+            base *= 1.5
+        return base
+
+    def heat_percent(self):
+        limit = self.get_heat_limit()
+        if limit == 0:
+            return 0
+        return min(100.0, round((self.heat / limit) * 100, 1))
+
+    def can_temper(self):
+        return self.heat >= self.get_heat_limit()
+
+    def get_blade_voice(self):
+        """Sentience lines that grow as the blade evolves."""
+        if self.material_grade == 3 and self.density >= 1000:
+            return "I am complete. I am legend. Feed me more souls."
+        if self.material_grade >= 2:
+            return "My edge cuts through reality itself… do not stop."
+        if self.material_grade >= 1:
+            return "I feel… different. Stronger. Hungrier."
+        if self.density >= 500:
+            return "Temper me, smith. I am ready to be reborn."
+        if self.density >= 100:
+            return "Strike harder. I can feel your power."
+        if self.density >= 10:
+            return "I hunger for more heat…"
+        return "…"
+
+    def __str__(self):
+        return f"{self.player.name}'s Forge [{self.get_material_name()}]"
+
