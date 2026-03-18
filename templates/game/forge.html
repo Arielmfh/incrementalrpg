@@ -119,8 +119,8 @@
   function getCookie(name) {
     let v = null;
     document.cookie.split(';').forEach(c => {
-      const [k, val] = c.trim().split('=');
-      if (k === name) v = decodeURIComponent(val);
+      const [key, value] = c.trim().split('=');
+      if (key === name) v = decodeURIComponent(value);
     });
     return v;
   }
@@ -237,7 +237,7 @@
   setInterval(function() {
     const tempBtn = document.getElementById('temper-btn');
     if (tempBtn.style.display !== 'none') forgeTemper();
-  }, 3000);
+  }, {{ auto_temper_check_ms }});
   {% endif %}
 
   // ── Initial heat bar colour ───────────────────────────────────────────────

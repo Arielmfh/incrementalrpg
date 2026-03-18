@@ -70,6 +70,23 @@
     svg.setAttribute('height', wrapper.offsetHeight);
     svg.innerHTML = '';
 
+    // Single reusable defs block for glow filters
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    svg.appendChild(defs);
+
+    const glowColors = { purchased: '#38a169', available: '#6c3fc5' };
+    const addedFilters = new Set();
+
+    function ensureFilter(filterId, color) {
+      if (addedFilters.has(filterId)) return;
+      addedFilters.add(filterId);
+      defs.innerHTML += `
+        <filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>`;
+    }
+
     document.querySelectorAll('.dag-node[data-parent-id]').forEach(node => {
       const parentId = node.dataset.parentId;
       if (!parentId) return;
@@ -90,25 +107,15 @@
       const nPurchased = node.classList.contains('state-purchased');
       const nAvailable = node.classList.contains('state-available');
 
-      let stroke, glowColor, strokeW;
+      let stroke, filterId, strokeW;
       if (pPurchased && nPurchased) {
-        stroke = '#38a169'; glowColor = '#38a169'; strokeW = 3;   // green — fully unlocked
+        stroke = glowColors.purchased; filterId = 'glow-purchased'; strokeW = 3;
+        ensureFilter(filterId, stroke);
       } else if (pPurchased && nAvailable) {
-        stroke = '#6c3fc5'; glowColor = '#6c3fc5'; strokeW = 2.5; // purple — available
+        stroke = glowColors.available; filterId = 'glow-available'; strokeW = 2.5;
+        ensureFilter(filterId, stroke);
       } else {
-        stroke = '#2d3060'; glowColor = null;       strokeW = 2;   // dim — locked
-      }
-
-      const filterId = 'glow-' + Math.random().toString(36).slice(2);
-      if (glowColor) {
-        const defs = svg.querySelector('defs') || svg.insertBefore(
-          document.createElementNS('http://www.w3.org/2000/svg', 'defs'), svg.firstChild
-        );
-        defs.innerHTML += `
-          <filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-          </filter>`;
+        stroke = '#2d3060'; filterId = null; strokeW = 2;
       }
 
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -117,7 +124,7 @@
       path.setAttribute('stroke-width', strokeW);
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke-linecap', 'round');
-      if (glowColor) path.setAttribute('filter', `url(#${filterId})`);
+      if (filterId) path.setAttribute('filter', `url(#${filterId})`);
       svg.appendChild(path);
     });
   }

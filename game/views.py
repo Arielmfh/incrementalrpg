@@ -412,7 +412,11 @@ def combat_history(request):
     })
 
 
-# ─── Forge (The Infinite Blade) ──────────────────────────────────────────────
+# Seconds between each auto-strike when the Apprentice skill is active.
+# Steam Powered Bellows halves this interval.
+_AUTO_STRIKE_INTERVAL = 2.0
+_AUTO_TEMPER_CHECK_MS = 3000  # ms, used in forge.html JS
+
 
 def _compute_forge_bonuses(player_skills):
     """Return a dict of forge bonus values derived from learned skills."""
@@ -439,26 +443,27 @@ def forge_view(request):
     # ── Offline progress (Steam Powered Bellows) ──────────────────────────
     if not created and bonuses['has_steam']:
         elapsed = (timezone.now() - forge_state.last_active).total_seconds()
-        offline_strikes = int(elapsed / 2.0)  # 1 auto-strike per 2s
+        offline_strikes = int(elapsed / _AUTO_STRIKE_INTERVAL)
         if offline_strikes > 0:
             offline_heat = offline_strikes * bonuses['heat_per_click']
             forge_state.heat = min(
                 forge_state.heat + offline_heat, forge_state.get_heat_limit()
             )
-            # Auto-temper if Magical Catalyst is active
+            # Auto-temper if Magical Catalyst is active; cache limit per loop
             if bonuses['has_catalyst']:
+                retain = 0.25 if bonuses['has_soul_binding'] else 0.0
                 while forge_state.can_temper():
-                    retain = 0.25 if bonuses['has_soul_binding'] else 0.0
                     forge_state.temper_count += 1
                     if forge_state.material_grade < 3:
                         forge_state.material_grade += 1
                     forge_state.heat *= retain
                     forge_state.density *= retain
+                    # Re-evaluate limit after grade change; stop if no longer full
                     if forge_state.heat < forge_state.get_heat_limit():
-                        break  # prevent infinite loop at grade 3
+                        break
             forge_state.save()
 
-    auto_interval = 1.0 if bonuses['has_steam'] else 2.0
+    auto_interval = _AUTO_STRIKE_INTERVAL / 2 if bonuses['has_steam'] else _AUTO_STRIKE_INTERVAL
 
     return render(request, 'game/forge.html', {
         'player': player,
@@ -467,6 +472,7 @@ def forge_view(request):
         'has_steam': bonuses['has_steam'],
         'has_catalyst': bonuses['has_catalyst'],
         'auto_interval': auto_interval,
+        'auto_temper_check_ms': _AUTO_TEMPER_CHECK_MS,
     })
 
 

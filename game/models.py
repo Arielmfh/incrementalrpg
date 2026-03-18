@@ -273,6 +273,11 @@ class ForgeState(models.Model):
         (3, 'Star-Iron'),
     ]
     HEAT_LIMIT_BASE = 1000.0
+    # Density thresholds for blade sentience messages
+    _VOICE_THRESHOLD_MAX   = 1000
+    _VOICE_THRESHOLD_HIGH  = 500
+    _VOICE_THRESHOLD_MID   = 100
+    _VOICE_THRESHOLD_LOW   = 10
 
     player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name='forge_state')
     heat = models.FloatField(default=0.0)
@@ -304,17 +309,17 @@ class ForgeState(models.Model):
 
     def get_blade_voice(self):
         """Sentience lines that grow as the blade evolves."""
-        if self.material_grade == 3 and self.density >= 1000:
+        if self.material_grade == 3 and self.density >= self._VOICE_THRESHOLD_MAX:
             return "I am complete. I am legend. Feed me more souls."
         if self.material_grade >= 2:
             return "My edge cuts through reality itself… do not stop."
         if self.material_grade >= 1:
             return "I feel… different. Stronger. Hungrier."
-        if self.density >= 500:
+        if self.density >= self._VOICE_THRESHOLD_HIGH:
             return "Temper me, smith. I am ready to be reborn."
-        if self.density >= 100:
+        if self.density >= self._VOICE_THRESHOLD_MID:
             return "Strike harder. I can feel your power."
-        if self.density >= 10:
+        if self.density >= self._VOICE_THRESHOLD_LOW:
             return "I hunger for more heat…"
         return "…"
 
