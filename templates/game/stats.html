@@ -1,0 +1,104 @@
+{% extends 'game/base.html' %}
+{% block title %}Stats – {{ player.name }}{% endblock %}
+{% block content %}
+<div class="page-title">📊 Character Stats</div>
+
+<div class="grid-2">
+  <!-- Allocate stat points -->
+  <div class="card">
+    <div class="card-title">🎯 Allocate Stat Points</div>
+    {% if player.stat_points > 0 %}
+    <p style="color:var(--secondary);font-size:0.9rem;margin-bottom:1rem">
+      You have <strong>{{ player.stat_points }}</strong> stat point{{ player.stat_points|pluralize }} to spend!
+    </p>
+    {% else %}
+    <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem">
+      No stat points available. Level up to earn more!
+    </p>
+    {% endif %}
+
+    {% for stat_name, stat_icon, stat_desc, stat_val in stat_list %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span style="font-size:1.1rem">{{ stat_icon }}</span>
+        <strong style="margin-left:0.4rem">{{ stat_name }}</strong>
+        <div style="font-size:0.75rem;color:var(--text-muted)">{{ stat_desc }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.8rem">
+        <span class="stat-value highlight" style="font-size:1.2rem;min-width:2rem;text-align:center">{{ stat_val }}</span>
+        {% if player.stat_points > 0 %}
+        <form method="post" action="{% url 'game:allocate_stat' %}">
+          {% csrf_token %}
+          <input type="hidden" name="stat" value="{{ stat_name|lower }}">
+          <button type="submit" class="btn btn-primary btn-sm">+ Increase</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Derived stats -->
+  <div class="card">
+    <div class="card-title">⚔️ Derived Stats</div>
+
+    <div style="background:var(--bg-card2);border-radius:8px;padding:1rem;margin-bottom:1rem">
+      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.4rem">HP</div>
+      <div style="font-size:1.5rem;font-weight:700;color:var(--danger)">{{ player.current_hp }} / {{ player.max_hp }}</div>
+      <div class="hp-bar-wrap" style="margin-top:0.4rem"><div class="hp-bar" style="width:{{ player.hp_percent }}%"></div></div>
+    </div>
+
+    <div class="stat-row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span class="stat-label">⚔️ Attack</span>
+      <span class="stat-value highlight">{{ attack }}</span>
+    </div>
+    <div class="stat-row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span class="stat-label">🛡️ Defense</span>
+      <span class="stat-value highlight">{{ defense }}</span>
+    </div>
+    <div class="stat-row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span class="stat-label">💥 Crit Chance</span>
+      <span class="stat-value highlight">{{ crit_chance }}%</span>
+    </div>
+    <div class="stat-row" style="padding:0.5rem 0;border-bottom:1px solid var(--border)">
+      <span class="stat-label">💨 Dodge Chance</span>
+      <span class="stat-value">{{ dodge_chance }}%</span>
+    </div>
+
+    <hr style="border-color:var(--border);margin:0.8rem 0">
+    <div class="stat-row">
+      <span class="stat-label">Level</span>
+      <span class="stat-value highlight">{{ player.level }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Experience</span>
+      <span class="stat-value">{{ player.experience }} / {{ player.xp_for_next_level }}</span>
+    </div>
+    <div class="xp-bar-wrap" style="margin:0.4rem 0"><div class="xp-bar" style="width:{{ player.xp_progress_percent }}%"></div></div>
+    <div class="stat-row">
+      <span class="stat-label">Enemies Defeated</span>
+      <span class="stat-value">{{ player.enemies_defeated }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Total Damage Dealt</span>
+      <span class="stat-value">{{ player.total_damage_dealt }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Skills summary -->
+{% if player.skills.all %}
+<div class="card" style="margin-top:1.2rem">
+  <div class="card-title">🌳 Active Skills</div>
+  <div class="grid-4">
+    {% for skill in player.skills.all %}
+    <div style="background:var(--bg-card2);border:1px solid var(--success);border-radius:8px;padding:0.7rem;text-align:center">
+      <div style="font-size:1.5rem">{{ skill.icon }}</div>
+      <div style="font-weight:700;font-size:0.85rem;margin-top:0.2rem">{{ skill.name }}</div>
+      <div style="font-size:0.75rem;color:var(--text-muted)">{{ skill.description }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

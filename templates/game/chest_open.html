@@ -1,0 +1,47 @@
+{% extends 'game/base.html' %}
+{% block title %}Chest Opened!{% endblock %}
+{% block content %}
+<div class="page-title">✨ Chest Opened!</div>
+
+<div class="card" style="text-align:center;max-width:500px;margin:0 auto">
+  <div style="font-size:4rem;margin-bottom:0.5rem">{{ chest.icon }}</div>
+  <div style="font-size:1.3rem;font-weight:700;margin-bottom:1.5rem">{{ chest.name }}</div>
+
+  <div class="reward-item" style="justify-content:center;background:var(--bg-card2)">
+    <div class="reward-icon">💰</div>
+    <div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--secondary)">+{{ rewards.gold }} Gold</div>
+      <div style="font-size:0.8rem;color:var(--text-muted)">Added to your purse</div>
+    </div>
+  </div>
+
+  {% if rewards.items %}
+  <div style="margin-top:1rem">
+    <div style="font-size:0.9rem;color:var(--text-muted);margin-bottom:0.6rem">Items Found:</div>
+    {% for item in rewards.items %}
+    <div class="reward-item">
+      <div class="reward-icon">{{ item.icon }}</div>
+      <div>
+        <div class="rarity-{{ item.rarity }}" style="font-weight:700">{{ item.name }}</div>
+        <div style="font-size:0.78rem;color:var(--text-muted)">{{ item.get_rarity_display }} · {{ item.get_item_type_display }}</div>
+        <div style="font-size:0.78rem;display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.2rem">
+          {% if item.attack_bonus > 0 %}<span style="color:#fc8181">+{{ item.attack_bonus }} ATK</span>{% endif %}
+          {% if item.defense_bonus > 0 %}<span style="color:#68d391">+{{ item.defense_bonus }} DEF</span>{% endif %}
+          {% if item.hp_bonus > 0 %}<span style="color:#fc8181">+{{ item.hp_bonus }} HP</span>{% endif %}
+          {% if item.hp_restore > 0 %}<span style="color:#68d391">Restore {{ item.hp_restore }} HP</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);margin-top:0.8rem;font-size:0.9rem">No items this time.</p>
+  {% endif %}
+
+  <div style="margin-top:1.5rem;display:flex;gap:0.8rem;justify-content:center;flex-wrap:wrap">
+    <a href="{% url 'game:chests' %}" class="btn btn-gold">📦 Open Another</a>
+    <a href="{% url 'game:inventory' %}" class="btn btn-secondary">🎒 View Inventory</a>
+    <a href="{% url 'game:dashboard' %}" class="btn btn-secondary">🏠 Dashboard</a>
+  </div>
+</div>
+{% endblock %}

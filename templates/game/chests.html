@@ -1,0 +1,37 @@
+{% extends 'game/base.html' %}
+{% block title %}Chests{% endblock %}
+{% block content %}
+<div class="page-title">📦 Your Chests</div>
+
+{% if player_chests %}
+<div class="grid-3">
+  {% for pc in player_chests %}
+  <div class="card" style="text-align:center">
+    <div style="font-size:3rem;margin-bottom:0.5rem">{{ pc.chest.icon }}</div>
+    <div style="font-size:1.1rem;font-weight:700;margin-bottom:0.3rem">{{ pc.chest.name }}</div>
+    <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.5rem">
+      {{ pc.chest.get_chest_type_display }}
+    </div>
+    <div style="font-size:0.85rem;display:flex;gap:1rem;justify-content:center;margin-bottom:0.8rem">
+      <span>💰 {{ pc.chest.gold_min }}–{{ pc.chest.gold_max }}</span>
+      <span>🎁 {{ pc.chest.guaranteed_items }}+ item{{ pc.chest.guaranteed_items|pluralize }}</span>
+    </div>
+    <div style="color:var(--secondary);font-weight:700;margin-bottom:1rem">×{{ pc.quantity }} available</div>
+    <form method="post" action="{% url 'game:open_chest' pc.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-gold">Open Chest</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem">
+  <div style="font-size:3rem;margin-bottom:1rem">📦</div>
+  <p style="color:var(--text-muted)">No chests yet! Defeat enemies to find them.</p>
+  <p style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem">
+    Elite enemies have a 15% chance and bosses have a 40% chance to drop chests!
+  </p>
+  <a href="{% url 'game:combat_select' %}" class="btn btn-danger" style="margin-top:1rem">⚔️ Go Fight!</a>
+</div>
+{% endif %}
+{% endblock %}

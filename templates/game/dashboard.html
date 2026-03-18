@@ -1,0 +1,132 @@
+{% extends 'game/base.html' %}
+{% block title %}Dashboard – {{ player.name }}{% endblock %}
+{% block content %}
+<div class="page-title">🏠 {{ player.name }}'s Dashboard</div>
+
+<!-- Player overview -->
+<div class="grid-2" style="margin-bottom:1.2rem">
+  <div class="card">
+    <div class="card-title">🧑 Character</div>
+    <div class="stat-row">
+      <span class="stat-label">Name</span>
+      <span class="stat-value highlight">{{ player.name }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Level</span>
+      <span class="stat-value highlight">{{ player.level }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Experience</span>
+      <span class="stat-value">{{ player.experience }} / {{ player.xp_for_next_level }}</span>
+    </div>
+    <div class="xp-bar-wrap" style="margin:0.4rem 0">
+      <div class="xp-bar" style="width:{{ player.xp_progress_percent }}%"></div>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">HP</span>
+      <span class="stat-value">{{ player.current_hp }} / {{ player.max_hp }}</span>
+    </div>
+    <div class="hp-bar-wrap" style="margin:0.4rem 0">
+      <div class="hp-bar" style="width:{{ player.hp_percent }}%"></div>
+    </div>
+    <div class="stat-row" style="margin-top:0.5rem">
+      <span class="stat-label">💰 Gold</span>
+      <span class="stat-value highlight">{{ player.gold }}</span>
+    </div>
+    {% if player.stat_points > 0 %}
+    <div style="margin-top:0.8rem;padding:0.5rem;background:#2a1a40;border-radius:6px;font-size:0.85rem;color:var(--secondary)">
+      ✨ You have <strong>{{ player.stat_points }}</strong> stat point{{ player.stat_points|pluralize }} to spend!
+      <a href="{% url 'game:stats' %}" style="margin-left:0.5rem" class="btn btn-sm btn-primary">Allocate</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-title">⚔️ Combat Stats</div>
+    <div class="grid-2" style="gap:0.8rem">
+      <div class="stat-box">
+        <div class="big">{{ attack }}</div>
+        <div class="label">Attack</div>
+      </div>
+      <div class="stat-box">
+        <div class="big">{{ defense }}</div>
+        <div class="label">Defense</div>
+      </div>
+      <div class="stat-box">
+        <div class="big">{{ crit_chance }}%</div>
+        <div class="label">Crit Chance</div>
+      </div>
+      <div class="stat-box">
+        <div class="big">{{ player.enemies_defeated }}</div>
+        <div class="label">Enemies Defeated</div>
+      </div>
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+      <a href="{% url 'game:combat_random' %}" class="btn btn-danger">⚔️ Quick Battle!</a>
+      <a href="{% url 'game:combat_select' %}" class="btn btn-secondary">🗺️ Choose Enemy</a>
+    </div>
+  </div>
+</div>
+
+<!-- Base stats quick view -->
+<div class="card" style="margin-bottom:1.2rem">
+  <div class="card-title">📊 Base Stats</div>
+  <div class="grid-4">
+    <div class="stat-box">
+      <div class="big">{{ player.strength }}</div>
+      <div class="label">💪 Strength</div>
+    </div>
+    <div class="stat-box">
+      <div class="big">{{ player.dexterity }}</div>
+      <div class="label">🏃 Dexterity</div>
+    </div>
+    <div class="stat-box">
+      <div class="big">{{ player.intelligence }}</div>
+      <div class="label">🧠 Intelligence</div>
+    </div>
+    <div class="stat-box">
+      <div class="big">{{ player.vitality }}</div>
+      <div class="label">❤️ Vitality</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <!-- Recent battles -->
+  <div class="card">
+    <div class="card-title">📜 Recent Battles</div>
+    {% if recent_combats %}
+      {% for log in recent_combats %}
+        <div class="stat-row" style="border-bottom:1px solid var(--border);padding:0.4rem 0">
+          <span style="font-size:0.85rem">
+            vs <strong>{{ log.enemy_name }}</strong>
+            <span class="badge badge-{% if log.enemy_level <= player.level %}normal{% else %}elite{% endif %}" style="margin-left:0.3rem">Lv {{ log.enemy_level }}</span>
+          </span>
+          <span class="outcome-{{ log.outcome }}" style="font-size:0.85rem">
+            {% if log.outcome == 'win' %}✅ Win{% elif log.outcome == 'loss' %}❌ Loss{% else %}🏃 Fled{% endif %}
+          </span>
+        </div>
+      {% endfor %}
+      <a href="{% url 'game:combat_history' %}" class="btn btn-secondary btn-sm" style="margin-top:0.8rem">View All</a>
+    {% else %}
+      <p style="color:var(--text-muted);font-size:0.9rem">No battles yet. Go fight something!</p>
+    {% endif %}
+  </div>
+
+  <!-- Chests -->
+  <div class="card">
+    <div class="card-title">📦 Your Chests</div>
+    {% if chests %}
+      {% for pc in chests %}
+        <div class="stat-row">
+          <span>{{ pc.chest.icon }} {{ pc.chest.name }}</span>
+          <span class="stat-value highlight">×{{ pc.quantity }}</span>
+        </div>
+      {% endfor %}
+      <a href="{% url 'game:chests' %}" class="btn btn-gold btn-sm" style="margin-top:0.8rem">Open Chests</a>
+    {% else %}
+      <p style="color:var(--text-muted);font-size:0.9rem">No chests yet. Defeat enemies to find them!</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
