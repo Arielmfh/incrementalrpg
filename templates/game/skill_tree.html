@@ -1,0 +1,70 @@
+{% extends 'game/base.html' %}
+{% block title %}Skill Tree{% endblock %}
+{% block content %}
+<div class="page-title">🌳 Skill Tree</div>
+
+<div style="margin-bottom:1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+  <div class="card" style="padding:0.7rem 1.2rem;display:flex;gap:1.5rem;align-items:center">
+    <span style="font-size:0.9rem;color:var(--text-muted)">Level: <strong style="color:var(--text-light)">{{ player.level }}</strong></span>
+    <span style="font-size:0.9rem;color:var(--text-muted)">Stat Points: <strong style="color:var(--secondary)">{{ player.stat_points }}</strong></span>
+    <span style="font-size:0.9rem;color:var(--text-muted)">Skills Learned: <strong style="color:var(--success)">{{ player.skills.count }}</strong></span>
+  </div>
+</div>
+
+{% regroup skill_data by skill.tier as tier_list %}
+{% for tier_group in tier_list %}
+<div class="card" style="margin-bottom:1.2rem">
+  <div class="card-title">
+    {% if tier_group.grouper == 1 %}⭐ Tier 1 — Basic Skills
+    {% elif tier_group.grouper == 2 %}⭐⭐ Tier 2 — Advanced Skills
+    {% elif tier_group.grouper == 3 %}⭐⭐⭐ Tier 3 — Elite Skills
+    {% else %}Tier {{ tier_group.grouper }} Skills{% endif %}
+  </div>
+  <div class="grid-4">
+    {% for entry in tier_group.list %}
+    {% with entry.skill as skill %}
+    <div class="skill-card {% if entry.learned %}learned{% elif entry.can_learn %}can-learn{% else %}locked{% endif %}">
+      {% if entry.learned %}
+        <span class="skill-badge-learned">✓ Learned</span>
+      {% endif %}
+      <div class="skill-icon">{{ skill.icon }}</div>
+      <div class="skill-name">{{ skill.name }}</div>
+      <div class="skill-desc">{{ skill.description }}</div>
+      <div class="skill-tier">
+        <span class="badge badge-{% if skill.skill_type == 'attack' %}elite{% elif skill.skill_type == 'defense' %}normal{% else %}normal{% endif %}">
+          {{ skill.get_skill_type_display }}
+        </span>
+      </div>
+      <div class="skill-cost" style="margin-top:0.4rem">
+        Lv {{ skill.level_required }} · {{ skill.stat_points_cost }} pt{{ skill.stat_points_cost|pluralize }}
+      </div>
+      {% if skill.parent_skill %}
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem">
+        Requires: {{ skill.parent_skill.name }}
+      </div>
+      {% endif %}
+      <div style="margin-top:0.7rem">
+        {% if entry.learned %}
+          <span style="color:var(--success);font-size:0.8rem">✓ Active</span>
+        {% elif entry.can_learn %}
+          <form method="post" action="{% url 'game:learn_skill' skill.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-sm">Learn Skill</button>
+          </form>
+        {% else %}
+          <span class="btn btn-secondary btn-sm disabled">🔒 Locked</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{% if not skill_data %}
+<div class="card">
+  <p style="color:var(--text-muted)">No skills available. Ask the admin to populate game data.</p>
+</div>
+{% endif %}
+{% endblock %}

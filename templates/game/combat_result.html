@@ -1,0 +1,98 @@
+{% extends 'game/base.html' %}
+{% block title %}Combat Result{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% if result.outcome == 'win' %}🏆 Victory!{% elif result.outcome == 'loss' %}💀 Defeat!{% else %}🏃 Withdrew!{% endif %}
+</div>
+
+{% if leveled_up %}
+<div style="background:linear-gradient(135deg,#2d1a60,#1a3a20);border:2px solid var(--secondary);border-radius:12px;padding:1.2rem;margin-bottom:1.2rem;text-align:center">
+  <div style="font-size:2rem">🎉</div>
+  <div style="font-size:1.4rem;font-weight:700;color:var(--secondary)">LEVEL UP!</div>
+  <div style="color:var(--text-light)">You are now <strong>Level {{ player.level }}</strong>! You gained 3 stat points.</div>
+</div>
+{% endif %}
+
+<div class="grid-2" style="margin-bottom:1.2rem">
+  <!-- Result summary -->
+  <div class="card">
+    <div class="card-title">📊 Battle Summary</div>
+    <div class="stat-row">
+      <span class="stat-label">Opponent</span>
+      <span class="stat-value">{{ enemy.icon }} {{ enemy.name }} (Lv {{ result.enemy_level }})</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Outcome</span>
+      <span class="outcome-{{ result.outcome }}">
+        {% if result.outcome == 'win' %}✅ Victory{% elif result.outcome == 'loss' %}❌ Defeat{% else %}🏃 Withdrew{% endif %}
+      </span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Turns</span>
+      <span class="stat-value">{{ result.turns }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">✨ XP Gained</span>
+      <span class="stat-value highlight">+{{ result.xp_gained }}</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">💰 Gold Gained</span>
+      <span class="stat-value highlight">+{{ result.gold_gained }}</span>
+    </div>
+    {% if dropped_item %}
+    <div class="stat-row">
+      <span class="stat-label">🎁 Item Drop</span>
+      <span class="stat-value rarity-{{ dropped_item.rarity }}">{{ dropped_item.icon }} {{ dropped_item.name }}</span>
+    </div>
+    {% endif %}
+
+    <hr style="border-color:var(--border);margin:0.8rem 0">
+    <div class="stat-row">
+      <span class="stat-label">Your HP</span>
+      <span class="stat-value">{{ player.current_hp }} / {{ player.max_hp }}</span>
+    </div>
+    <div class="hp-bar-wrap">
+      <div class="hp-bar" style="width:{{ player.hp_percent }}%"></div>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Experience</span>
+      <span class="stat-value">{{ player.experience }} / {{ player.xp_for_next_level }}</span>
+    </div>
+    <div class="xp-bar-wrap">
+      <div class="xp-bar" style="width:{{ player.xp_progress_percent }}%"></div>
+    </div>
+  </div>
+
+  <!-- Player stats after combat -->
+  <div class="card">
+    <div class="card-title">🧑 Your Status</div>
+    <div class="grid-2" style="gap:0.6rem;margin-bottom:0.8rem">
+      <div class="stat-box"><div class="big">{{ player.level }}</div><div class="label">Level</div></div>
+      <div class="stat-box"><div class="big">{{ player.gold }}</div><div class="label">💰 Gold</div></div>
+      <div class="stat-box"><div class="big">{{ attack }}</div><div class="label">Attack</div></div>
+      <div class="stat-box"><div class="big">{{ defense }}</div><div class="label">Defense</div></div>
+    </div>
+    {% if player.stat_points > 0 %}
+    <div style="padding:0.5rem;background:#2a1a40;border-radius:6px;font-size:0.85rem;color:var(--secondary)">
+      ✨ <strong>{{ player.stat_points }}</strong> stat points available!
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Combat log -->
+<div class="card" style="margin-bottom:1.2rem">
+  <div class="card-title">📜 Battle Log</div>
+  <div class="combat-log">{{ result.log }}</div>
+</div>
+
+<!-- Actions -->
+<div style="display:flex;gap:0.8rem;flex-wrap:wrap">
+  <a href="{% url 'game:combat_random' %}" class="btn btn-danger btn-lg">⚔️ Fight Again!</a>
+  <a href="{% url 'game:combat_select' %}" class="btn btn-secondary btn-lg">🗺️ Choose Enemy</a>
+  {% if player.stat_points > 0 %}
+  <a href="{% url 'game:stats' %}" class="btn btn-primary btn-lg">📊 Allocate Stats</a>
+  {% endif %}
+  <a href="{% url 'game:dashboard' %}" class="btn btn-secondary btn-lg">🏠 Dashboard</a>
+</div>
+{% endblock %}

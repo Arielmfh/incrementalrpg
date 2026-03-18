@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register – Incremental RPG</title>
+  <link rel="stylesheet" href="{% static 'css/game.css' %}">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-title">⚔️ Create Character</div>
+    <div class="auth-sub">Begin your legend</div>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="message {{ message.tags }}" style="margin-bottom:0.8rem">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Character Name</label>
+        <input type="text" name="character_name" required autofocus placeholder="e.g. DragonSlayer">
+      </div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" required placeholder="Login username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" name="password2" required>
+      </div>
+      <button type="submit" class="btn btn-gold" style="width:100%;margin-top:0.5rem">Start Adventure!</button>
+    </form>
+    <p style="text-align:center;margin-top:1rem;font-size:0.9rem;color:var(--text-muted)">
+      Already a hero? <a href="{% url 'game:login' %}">Login</a>
+    </p>
+  </div>
+</div>
+</body>
+</html>

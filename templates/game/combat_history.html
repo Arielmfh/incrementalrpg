@@ -1,0 +1,52 @@
+{% extends 'game/base.html' %}
+{% block title %}Combat History{% endblock %}
+{% block content %}
+<div class="page-title">📜 Combat History</div>
+
+{% if logs %}
+<div class="card">
+  <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+    <thead>
+      <tr style="color:var(--text-muted);border-bottom:2px solid var(--border)">
+        <th style="padding:0.5rem;text-align:left">Enemy</th>
+        <th style="padding:0.5rem;text-align:center">Level</th>
+        <th style="padding:0.5rem;text-align:center">Outcome</th>
+        <th style="padding:0.5rem;text-align:center">XP</th>
+        <th style="padding:0.5rem;text-align:center">Gold</th>
+        <th style="padding:0.5rem;text-align:center">Loot</th>
+        <th style="padding:0.5rem;text-align:center">Turns</th>
+        <th style="padding:0.5rem;text-align:right">Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:0.5rem;font-weight:600">{{ log.enemy_name }}</td>
+        <td style="padding:0.5rem;text-align:center">{{ log.enemy_level }}</td>
+        <td style="padding:0.5rem;text-align:center" class="outcome-{{ log.outcome }}">
+          {% if log.outcome == 'win' %}✅ Win{% elif log.outcome == 'loss' %}❌ Loss{% else %}🏃 Fled{% endif %}
+        </td>
+        <td style="padding:0.5rem;text-align:center;color:var(--secondary)">+{{ log.xp_gained }}</td>
+        <td style="padding:0.5rem;text-align:center;color:var(--secondary)">+{{ log.gold_gained }}</td>
+        <td style="padding:0.5rem;text-align:center">
+          {% if log.item_dropped %}
+            <span class="rarity-{{ log.item_dropped.rarity }}">{{ log.item_dropped.icon }} {{ log.item_dropped.name }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="padding:0.5rem;text-align:center">{{ log.turns }}</td>
+        <td style="padding:0.5rem;text-align:right;color:var(--text-muted);font-size:0.8rem">{{ log.created_at|date:"M d, H:i" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:2rem">
+  <p style="color:var(--text-muted)">No combat history yet.</p>
+  <a href="{% url 'game:combat_select' %}" class="btn btn-danger" style="margin-top:1rem">⚔️ Start Fighting!</a>
+</div>
+{% endif %}
+<div style="margin-top:1rem">
+  <a href="{% url 'game:dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+</div>
+{% endblock %}

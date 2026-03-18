@@ -1,0 +1,54 @@
+{% extends 'game/base.html' %}
+{% block title %}Inventory{% endblock %}
+{% block content %}
+<div class="page-title">🎒 Inventory</div>
+
+{% if inventory %}
+<div class="grid-4">
+  {% for inv in inventory %}
+  <div class="item-card {% if inv.equipped %}equipped{% endif %}">
+    <div class="item-icon">{{ inv.item.icon }}</div>
+    <div class="item-name">{{ inv.item.name }}</div>
+    <div class="item-rarity rarity-{{ inv.item.rarity }}">{{ inv.item.get_rarity_display }}</div>
+    <div style="font-size:0.78rem;color:var(--text-muted);margin:0.3rem 0">{{ inv.item.description }}</div>
+
+    <!-- Stat bonuses -->
+    <div style="font-size:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.3rem 0">
+      {% if inv.item.attack_bonus > 0 %}<span style="color:#fc8181">+{{ inv.item.attack_bonus }} ATK</span>{% endif %}
+      {% if inv.item.defense_bonus > 0 %}<span style="color:#68d391">+{{ inv.item.defense_bonus }} DEF</span>{% endif %}
+      {% if inv.item.hp_bonus > 0 %}<span style="color:#fc8181">+{{ inv.item.hp_bonus }} HP</span>{% endif %}
+      {% if inv.item.hp_restore > 0 %}<span style="color:#68d391">Restore {{ inv.item.hp_restore }} HP</span>{% endif %}
+    </div>
+
+    <div style="font-size:0.8rem;color:var(--text-muted)">Qty: {{ inv.quantity }}</div>
+
+    {% if inv.equipped %}
+      <span style="color:var(--secondary);font-size:0.8rem;font-weight:600">✓ Equipped</span>
+    {% endif %}
+
+    <div style="margin-top:0.6rem;display:flex;gap:0.4rem;flex-wrap:wrap">
+      {% if inv.item.item_type == 'weapon' or inv.item.item_type == 'armor' %}
+      <form method="post" action="{% url 'game:equip_item' inv.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm {% if inv.equipped %}btn-warning{% else %}btn-primary{% endif %}">
+          {% if inv.equipped %}Unequip{% else %}Equip{% endif %}
+        </button>
+      </form>
+      {% elif inv.item.item_type == 'potion' %}
+      <form method="post" action="{% url 'game:use_item' inv.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-success">Use</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem">
+  <div style="font-size:3rem;margin-bottom:1rem">🎒</div>
+  <p style="color:var(--text-muted)">Your inventory is empty. Defeat enemies to find items!</p>
+  <a href="{% url 'game:combat_select' %}" class="btn btn-danger" style="margin-top:1rem">⚔️ Go Fight!</a>
+</div>
+{% endif %}
+{% endblock %}

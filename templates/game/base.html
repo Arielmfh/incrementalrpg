@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Incremental RPG{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/game.css' %}">
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<nav class="navbar">
+  <span class="brand">⚔️ Incremental RPG</span>
+  <div class="nav-links">
+    <a href="{% url 'game:dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>🏠 Home</a>
+    <a href="{% url 'game:combat_select' %}" {% if 'combat' in request.resolver_match.url_name %}class="active"{% endif %}>⚔️ Battle</a>
+    <a href="{% url 'game:skill_tree' %}" {% if request.resolver_match.url_name == 'skill_tree' %}class="active"{% endif %}>🌳 Skills</a>
+    <a href="{% url 'game:stats' %}" {% if request.resolver_match.url_name == 'stats' %}class="active"{% endif %}>📊 Stats</a>
+    <a href="{% url 'game:inventory' %}" {% if request.resolver_match.url_name == 'inventory' %}class="active"{% endif %}>🎒 Inventory</a>
+    <a href="{% url 'game:chests' %}" {% if request.resolver_match.url_name == 'chests' %}class="active"{% endif %}>📦 Chests</a>
+  </div>
+  {% if user.player %}
+  <div class="player-info">
+    <span>{{ user.player.name }}</span> · Lv <span>{{ user.player.level }}</span> · 💰 <span>{{ user.player.gold }}</span>
+    &nbsp;|&nbsp; <a href="{% url 'game:logout' %}" style="color:var(--text-muted)">Logout</a>
+  </div>
+  {% endif %}
+</nav>
+{% endif %}
+
+{% if messages %}
+<div class="messages">
+  {% for message in messages %}
+    <div class="message {{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="container">
+  {% block content %}{% endblock %}
+</div>
+
+</body>
+</html>
