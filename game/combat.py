@@ -2,6 +2,42 @@ import random
 import math
 
 
+# ─── Mob variant definitions ──────────────────────────────────────────────────
+
+# Shiny: tougher, more XP/gold, better loot.
+# Blighted: hardest to kill, most gold, moderate XP boost.
+COMBAT_VARIANTS = {
+    'normal': {
+        'label': 'Normal',
+        'icon': '',
+        'hp_mult': 1.0, 'atk_mult': 1.0, 'def_mult': 1.0,
+        'xp_mult': 1.0, 'gold_mult': 1.0, 'loot_mult': 1.0,
+    },
+    'shiny': {
+        'label': 'Shiny',
+        'icon': '✨',
+        'hp_mult': 1.5, 'atk_mult': 1.3, 'def_mult': 1.2,
+        'xp_mult': 2.0, 'gold_mult': 1.5, 'loot_mult': 1.75,
+    },
+    'blighted': {
+        'label': 'Blighted',
+        'icon': '☠️',
+        'hp_mult': 1.3, 'atk_mult': 1.6, 'def_mult': 1.1,
+        'xp_mult': 1.5, 'gold_mult': 2.0, 'loot_mult': 1.4,
+    },
+}
+
+
+def roll_variant():
+    """Randomly decide whether a mob is Shiny, Blighted, or Normal."""
+    roll = random.random()
+    if roll < 0.05:
+        return 'blighted'
+    if roll < 0.15:
+        return 'shiny'
+    return 'normal'
+
+
 def scale_enemy_stats(enemy, player_level):
     """Scale enemy stats based on player level for challenge."""
     scale = 1 + (player_level - enemy.base_level) * 0.15
@@ -16,17 +52,22 @@ def scale_enemy_stats(enemy, player_level):
     }
 
 
-def run_combat(player, enemy, player_uses_skill=False):
+def run_combat(player, enemy, player_uses_skill=False, variant='normal'):
     """
     Simulate a full combat between player and enemy.
-    Returns a dict with outcome, xp, gold, drops, and log.
+    Returns a dict with outcome, xp, gold, drops, log, and variant info.
     """
+    v = COMBAT_VARIANTS.get(variant, COMBAT_VARIANTS['normal'])
+
     stats = scale_enemy_stats(enemy, player.level)
-    enemy_hp = stats['hp']
-    enemy_max_hp = stats['hp']
-    enemy_attack = stats['attack']
-    enemy_defense = stats['defense']
+    # Apply variant multipliers to enemy stats
+    enemy_hp = int(stats['hp'] * v['hp_mult'])
+    enemy_max_hp = enemy_hp
+    enemy_attack = int(stats['attack'] * v['atk_mult'])
+    enemy_defense = int(stats['defense'] * v['def_mult'])
     enemy_level = stats['level']
+    base_xp = int(stats['xp'] * v['xp_mult'])
+    base_gold = int(stats['gold'] * v['gold_mult'])
 
     player_attack = player.compute_attack()
     player_defense = player.compute_defense()
@@ -36,7 +77,8 @@ def run_combat(player, enemy, player_uses_skill=False):
     turns = 0
     max_turns = 30  # prevent infinite loops
 
-    log_lines.append(f"⚔️ Battle started: {player.name} (Lv {player.level}) vs {enemy.name} (Lv {enemy_level})")
+    variant_prefix = f"{v['icon']} {v['label']} " if v['icon'] else ''
+    log_lines.append(f"⚔️ Battle started: {player.name} (Lv {player.level}) vs {variant_prefix}{enemy.name} (Lv {enemy_level})")
     log_lines.append(f"Your HP: {player.current_hp}/{player.max_hp} | Enemy HP: {enemy_hp}")
 
     while player.current_hp > 0 and enemy_hp > 0 and turns < max_turns:
@@ -69,21 +111,21 @@ def run_combat(player, enemy, player_uses_skill=False):
 
     # Determine outcome
     if enemy_hp <= 0:
-        xp_gained = stats['xp']
-        gold_gained = stats['gold'] + random.randint(0, stats['gold'] // 2)
-        log_lines.append(f"\n🏆 Victory! You defeated {enemy.name}!")
+        xp_gained = base_xp
+        gold_gained = base_gold + random.randint(0, base_gold // 2)
+        log_lines.append(f"\n🏆 Victory! You defeated {variant_prefix}{enemy.name}!")
         log_lines.append(f"Gained: {xp_gained} XP | {gold_gained} Gold")
         outcome = 'win'
     elif player.current_hp <= 0:
-        xp_gained = stats['xp'] // 4  # partial XP on loss
+        xp_gained = base_xp // 4  # partial XP on loss
         gold_gained = 0
         log_lines.append(f"\n💀 Defeat! {enemy.name} has defeated you.")
         log_lines.append(f"Consolation: {xp_gained} XP")
         outcome = 'loss'
     else:
         # timeout
-        xp_gained = stats['xp'] // 2
-        gold_gained = stats['gold'] // 3
+        xp_gained = base_xp // 2
+        gold_gained = base_gold // 3
         log_lines.append(f"\n⏰ The battle timed out! Both fighters withdraw.")
         outcome = 'flee'
 
@@ -94,6 +136,8 @@ def run_combat(player, enemy, player_uses_skill=False):
         'turns': turns,
         'log': '\n'.join(log_lines),
         'enemy_level': enemy_level,
+        'variant': variant,
+        'loot_mult': v['loot_mult'],
     }
 
 

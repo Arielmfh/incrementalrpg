@@ -33,4 +33,5 @@ urlpatterns = [
     path('game/forge/', views.forge_view, name='forge'),
     path('game/forge/strike/', views.forge_strike, name='forge_strike'),
     path('game/forge/temper/', views.forge_temper, name='forge_temper'),
+    path('game/forge/craft/<str:recipe_id>/', views.forge_craft_blade, name='forge_craft_blade'),
 ]

@@ -72,14 +72,24 @@ class Player(models.Model):
         equipped_bonus = sum(
             inv.item.attack_bonus for inv in self.inventory.filter(equipped=True)
         )
-        return 5 + self.strength * 2 + skill_bonus + equipped_bonus
+        forge_bonus = 0
+        try:
+            forge_bonus = self.forge_state.blade_attack_bonus
+        except Exception:
+            pass
+        return 5 + self.strength * 2 + skill_bonus + equipped_bonus + forge_bonus
 
     def compute_defense(self):
         skill_bonus = sum(s.defense_bonus for s in self.skills.all())
         equipped_bonus = sum(
             inv.item.defense_bonus for inv in self.inventory.filter(equipped=True)
         )
-        return 2 + self.vitality + skill_bonus + equipped_bonus
+        forge_bonus = 0
+        try:
+            forge_bonus = self.forge_state.blade_defense_bonus
+        except Exception:
+            pass
+        return 2 + self.vitality + skill_bonus + equipped_bonus + forge_bonus
 
     def compute_crit_chance(self):
         skill_bonus = sum(s.crit_chance_bonus for s in self.skills.all())
@@ -156,6 +166,7 @@ class Item(models.Model):
         ('armor', 'Armor'),
         ('potion', 'Potion'),
         ('chest', 'Chest'),
+        ('material', 'Material'),
     ]
     RARITY_CHOICES = [
         ('common', 'Common'),
@@ -263,6 +274,21 @@ class PlayerChest(models.Model):
         return f"{self.player.name} - {self.chest.name} x{self.quantity}"
 
 
+class EncounteredEnemy(models.Model):
+    """Tracks which enemies a player has discovered/fought at least once."""
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='encountered_enemies')
+    enemy = models.ForeignKey(Enemy, on_delete=models.CASCADE)
+    times_fought = models.IntegerField(default=0)
+    times_won = models.IntegerField(default=0)
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('player', 'enemy')
+
+    def __str__(self):
+        return f"{self.player.name} × {self.enemy.name}"
+
+
 class ForgeState(models.Model):
     """Tracks the state of a player's Infinite Blade forge."""
 
@@ -287,6 +313,9 @@ class ForgeState(models.Model):
     ember_dust = models.FloatField(default=0.0)
     total_strikes = models.IntegerField(default=0)
     last_active = models.DateTimeField(auto_now=True)
+    # Cached combat bonuses granted to the player by the current blade
+    blade_attack_bonus = models.IntegerField(default=0)
+    blade_defense_bonus = models.IntegerField(default=0)
 
     def get_material_name(self):
         return dict(self.MATERIAL_GRADES).get(self.material_grade, 'Unknown')
@@ -306,6 +335,19 @@ class ForgeState(models.Model):
 
     def can_temper(self):
         return self.heat >= self.get_heat_limit()
+
+    def compute_blade_stats(self):
+        """Return (attack_bonus, defense_bonus) from current material grade + density."""
+        g = self.material_grade
+        d = self.density
+        # Each grade tier provides a base bonus and improves density scaling.
+        attack = g * 8 + int(d / max(1, 10 - g * 2))
+        defense = g * 3 + int(d / max(1, 30 - g * 5))
+        return attack, defense
+
+    def update_blade_bonuses(self):
+        """Recompute and cache the blade combat bonuses. Call after heat/grade changes."""
+        self.blade_attack_bonus, self.blade_defense_bonus = self.compute_blade_stats()
 
     def get_blade_voice(self):
         """Sentience lines that grow as the blade evolves."""

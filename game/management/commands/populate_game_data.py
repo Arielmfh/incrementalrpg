@@ -94,6 +94,15 @@ class Command(BaseCommand):
                  icon='💊', hp_restore=120, level_required=3, gold_value=50),
             dict(name='Large Health Potion', description='Restores 250 HP.', item_type='potion', rarity='rare',
                  icon='🍶', hp_restore=250, level_required=7, gold_value=100),
+            # Weapon materials (used in forge crafting)
+            dict(name='Iron Ingot', description='A raw iron ingot, useful for forging blades.',
+                 item_type='material', rarity='common', icon='🪙', level_required=1, gold_value=5),
+            dict(name='Steel Bar', description='A refined steel bar, stronger than iron.',
+                 item_type='material', rarity='uncommon', icon='🔩', level_required=5, gold_value=15),
+            dict(name='Mythril Ore', description='Rare mystical ore that hums with energy.',
+                 item_type='material', rarity='rare', icon='💎', level_required=10, gold_value=40),
+            dict(name='Star Dust', description='Dust from fallen stars. Almost impossibly rare.',
+                 item_type='material', rarity='legendary', icon='⭐', level_required=15, gold_value=100),
         ]
         created = 0
         for data in items_data:
@@ -172,8 +181,12 @@ class Command(BaseCommand):
             chest, was_created = Chest.objects.get_or_create(name=data['name'], defaults=data)
             if was_created:
                 created += 1
-            # Add some items to each chest
-            all_items = list(Item.objects.all())
+            # Add items to each chest (exclude materials from lower-tier chests)
+            all_items = list(Item.objects.exclude(item_type='material').all())
+            materials = list(Item.objects.filter(item_type='material').all())
+            if data['chest_type'] in ('golden', 'legendary'):
+                # Higher chests can contain materials
+                all_items += materials
             if all_items:
                 chest.possible_items.set(all_items)
         self.stdout.write(f'  Created {created} chests.')

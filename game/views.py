@@ -9,8 +9,8 @@ from django.views.decorators.http import require_POST
 
 import random
 
-from .models import Player, Enemy, Item, Skill, PlayerInventory, CombatLog, Chest, PlayerChest, ForgeState
-from .combat import run_combat, pick_random_enemy, roll_loot, open_chest
+from .models import Player, Enemy, Item, Skill, PlayerInventory, CombatLog, Chest, PlayerChest, ForgeState, EncounteredEnemy
+from .combat import run_combat, pick_random_enemy, roll_loot, open_chest, COMBAT_VARIANTS, roll_variant
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────────
@@ -84,18 +84,21 @@ def dashboard(request):
 @login_required
 def combat_select(request):
     player = get_object_or_404(Player, user=request.user)
-    all_enemies = Enemy.objects.all().order_by('base_level')
 
-    # Normal enemies (within level range)
-    normal_enemies = [e for e in all_enemies if abs(e.base_level - player.level) <= 3]
-    # Hard challenges (stronger enemies)
-    hard_enemies = [e for e in all_enemies if e.base_level > player.level + 3]
+    # Encountered enemies the player has already met
+    encountered = (
+        EncounteredEnemy.objects
+        .filter(player=player)
+        .select_related('enemy')
+        .order_by('enemy__base_level')
+    )
+    total_enemies = Enemy.objects.count()
+    undiscovered_count = max(0, total_enemies - encountered.count())
 
     return render(request, 'game/combat_select.html', {
         'player': player,
-        'normal_enemies': normal_enemies,
-        'hard_enemies': hard_enemies,
-        'all_enemies': all_enemies,
+        'encountered': encountered,
+        'undiscovered_count': undiscovered_count,
     })
 
 
@@ -109,39 +112,75 @@ def combat_fight(request, enemy_id):
         player.save()
         messages.info(request, 'You rested and recovered some HP.')
 
-    result = run_combat(player, enemy)
+    # Read and clear the variant set by combat_random (defaults to 'normal')
+    variant = request.session.pop('combat_variant', 'normal')
+    variant_info = COMBAT_VARIANTS.get(variant, COMBAT_VARIANTS['normal'])
+
+    result = run_combat(player, enemy, variant=variant)
 
     # Apply results
     leveled_up = player.add_experience(result['xp_gained'])
     player.gold += result['gold_gained']
 
     dropped_item = None
+    dropped_material = None
+
+    # Record encounter
+    enc, _ = EncounteredEnemy.objects.get_or_create(player=player, enemy=enemy)
+    enc.times_fought += 1
+
     if result['outcome'] == 'win':
         player.enemies_defeated += 1
-        # Roll for loot
-        all_items = list(Item.objects.exclude(item_type='chest').all())
-        # Filter items appropriate to player level
+        enc.times_won += 1
+
+        loot_mult = result.get('loot_mult', 1.0)
+
+        # ── Regular item loot (no materials, no chest items) ────────────────
+        all_items = list(Item.objects.exclude(item_type__in=['chest', 'material']).all())
         suitable = [i for i in all_items if i.level_required <= player.level + 3]
         if not suitable:
             suitable = all_items
+
+        # Temporarily scale loot_chance for variant
+        original_loot_chance = enemy.loot_chance
+        enemy.loot_chance = min(1.0, enemy.loot_chance * loot_mult)
         dropped_item = roll_loot(enemy, suitable)
+        enemy.loot_chance = original_loot_chance
+
         if dropped_item:
-            inv, created = PlayerInventory.objects.get_or_create(
-                player=player, item=dropped_item,
-                defaults={'quantity': 0}
+            inv, _ = PlayerInventory.objects.get_or_create(
+                player=player, item=dropped_item, defaults={'quantity': 0}
             )
             inv.quantity += 1
             inv.save()
             result['log'] += f"\n🎁 Loot drop: {dropped_item.icon} {dropped_item.name} ({dropped_item.rarity})!"
 
-        # Chance for chest drop (5% base, scales up with enemy type)
+        # ── Material drop (non-boss enemies) ────────────────────────────────
+        if enemy.enemy_type != 'boss':
+            material_items = list(
+                Item.objects.filter(item_type='material', level_required__lte=player.level + 3).all()
+            )
+            if material_items:
+                # Base 40% material drop chance, boosted by variant
+                mat_chance = min(1.0, 0.40 * loot_mult)
+                if random.random() < mat_chance:
+                    dropped_material = random.choice(material_items)
+                    inv, _ = PlayerInventory.objects.get_or_create(
+                        player=player, item=dropped_material, defaults={'quantity': 0}
+                    )
+                    inv.quantity += 1
+                    inv.save()
+                    result['log'] += (
+                        f"\n⚒️ Material drop: {dropped_material.icon} {dropped_material.name}!"
+                    )
+
+        # ── Chest drop ──────────────────────────────────────────────────────
         chest_chance = 0.05
         if enemy.enemy_type == 'elite':
             chest_chance = 0.15
         elif enemy.enemy_type == 'boss':
             chest_chance = 0.40
 
-        import random
         if random.random() < chest_chance:
             chests = Chest.objects.filter(level_required__lte=player.level)
             if chests.exists():
@@ -153,6 +192,7 @@ def combat_fight(request, enemy_id):
                 pc.save()
                 result['log'] += f"\n📦 Chest found: {chest_obj.icon} {chest_obj.name}!"
 
+    enc.save()
     player.save()
 
     CombatLog.objects.create(
@@ -173,7 +213,10 @@ def combat_fight(request, enemy_id):
         'enemy': enemy,
         'result': result,
         'dropped_item': dropped_item,
+        'dropped_material': dropped_material,
         'leveled_up': leveled_up,
+        'variant': variant,
+        'variant_info': variant_info,
         'attack': player.compute_attack(),
         'defense': player.compute_defense(),
     })
@@ -181,9 +224,28 @@ def combat_fight(request, enemy_id):
 
 @login_required
 def combat_random(request):
-    """Fight a random enemy based on player level."""
+    """Explore the world: encounter enemies (new or known) with random variants."""
     player = get_object_or_404(Player, user=request.user)
-    enemy = pick_random_enemy(Enemy.objects.all(), player.level)
+
+    # Roll a mob variant before picking the enemy
+    variant = roll_variant()
+    request.session['combat_variant'] = variant
+
+    # 30% chance to discover a previously-unseen enemy; otherwise revisit a known one
+    encountered_ids = set(
+        player.encountered_enemies.values_list('enemy_id', flat=True)
+    )
+    all_enemies = list(Enemy.objects.all())
+    unseen = [e for e in all_enemies if e.id not in encountered_ids]
+    known = [e for e in all_enemies if e.id in encountered_ids]
+
+    if unseen and (not known or random.random() < 0.30):
+        # Discover a new enemy weighted by proximity to player level
+        enemy = pick_random_enemy(unseen, player.level)
+    else:
+        pool = known if known else all_enemies
+        enemy = pick_random_enemy(pool, player.level)
+
     if not enemy:
         messages.error(request, 'No enemies found. Check back later!')
         return redirect('game:combat_select')
@@ -417,6 +479,43 @@ def combat_history(request):
 _AUTO_STRIKE_INTERVAL = 2.0
 _AUTO_TEMPER_CHECK_MS = 3000  # ms, used in forge.html JS
 
+# Blade crafting recipes: each requires specific material items to start the
+# forge at a given material_grade with enhanced base bonuses.
+BLADE_RECIPES = [
+    {
+        'id': 'iron_blade',
+        'name': 'Iron Blade',
+        'grade': 0,
+        'icon': '🗡️',
+        'description': 'Forged from iron ingots. Starts the blade at Bronze grade.',
+        'materials': [('Iron Ingot', 3)],
+    },
+    {
+        'id': 'steel_blade',
+        'name': 'Steel Blade',
+        'grade': 1,
+        'icon': '⚔️',
+        'description': 'Crafted from refined steel. Starts the blade at Steel grade.',
+        'materials': [('Steel Bar', 3), ('Iron Ingot', 2)],
+    },
+    {
+        'id': 'mythril_edge',
+        'name': 'Mythril Edge',
+        'grade': 2,
+        'icon': '🌟',
+        'description': 'Imbued with mythril. Starts the blade at Mythril grade.',
+        'materials': [('Mythril Ore', 3), ('Steel Bar', 2)],
+    },
+    {
+        'id': 'star_iron_blade',
+        'name': 'Star-Iron Blade',
+        'grade': 3,
+        'icon': '⭐',
+        'description': 'The pinnacle of smithing. Starts the blade at Star-Iron grade.',
+        'materials': [('Star Dust', 3), ('Mythril Ore', 2)],
+    },
+]
+
 
 def _compute_forge_bonuses(player_skills):
     """Return a dict of forge bonus values derived from learned skills."""
@@ -430,6 +529,25 @@ def _compute_forge_bonuses(player_skills):
         'has_catalyst': 'Magical Catalyst' in skill_names,
         'has_soul_binding': 'Soul Binding' in skill_names,
     }
+
+
+def _build_recipes_with_inventory(player):
+    """Annotate BLADE_RECIPES with the player's current material counts."""
+    result = []
+    for recipe in BLADE_RECIPES:
+        mats = []
+        can_craft = True
+        for mat_name, qty_needed in recipe['materials']:
+            mat_item = Item.objects.filter(name=mat_name, item_type='material').first()
+            inv_qty = 0
+            if mat_item:
+                inv_entry = player.inventory.filter(item=mat_item).first()
+                inv_qty = inv_entry.quantity if inv_entry else 0
+            if inv_qty < qty_needed:
+                can_craft = False
+            mats.append({'name': mat_name, 'needed': qty_needed, 'have': inv_qty})
+        result.append({**recipe, 'material_status': mats, 'can_craft': can_craft})
+    return result
 
 
 @login_required
@@ -461,9 +579,11 @@ def forge_view(request):
                     # Re-evaluate limit after grade change; stop if no longer full
                     if forge_state.heat < forge_state.get_heat_limit():
                         break
+            forge_state.update_blade_bonuses()
             forge_state.save()
 
     auto_interval = _AUTO_STRIKE_INTERVAL / 2 if bonuses['has_steam'] else _AUTO_STRIKE_INTERVAL
+    recipes = _build_recipes_with_inventory(player)
 
     return render(request, 'game/forge.html', {
         'player': player,
@@ -473,6 +593,7 @@ def forge_view(request):
         'has_catalyst': bonuses['has_catalyst'],
         'auto_interval': auto_interval,
         'auto_temper_check_ms': _AUTO_TEMPER_CHECK_MS,
+        'recipes': recipes,
     })
 
 
@@ -496,6 +617,7 @@ def forge_strike(request):
         forge_state.ember_dust += 1.0
         ember_gained = 1
 
+    forge_state.update_blade_bonuses()
     forge_state.save()
 
     return JsonResponse({
@@ -509,6 +631,8 @@ def forge_strike(request):
         'material_grade': forge_state.get_material_name(),
         'blade_voice': forge_state.get_blade_voice(),
         'ember_gained': ember_gained,
+        'blade_attack_bonus': forge_state.blade_attack_bonus,
+        'blade_defense_bonus': forge_state.blade_defense_bonus,
     })
 
 
@@ -530,6 +654,7 @@ def forge_temper(request):
         forge_state.material_grade += 1
     forge_state.heat = forge_state.heat * retain
     forge_state.density = forge_state.density * retain
+    forge_state.update_blade_bonuses()
     forge_state.save()
 
     return JsonResponse({
@@ -541,6 +666,59 @@ def forge_temper(request):
         'temper_count': forge_state.temper_count,
         'can_temper': forge_state.can_temper(),
         'blade_voice': forge_state.get_blade_voice(),
+        'blade_attack_bonus': forge_state.blade_attack_bonus,
+        'blade_defense_bonus': forge_state.blade_defense_bonus,
         'message': f'Blade tempered! New grade: {forge_state.get_material_name()}',
+    })
+
+
+@login_required
+@require_POST
+def forge_craft_blade(request, recipe_id):
+    """Consume materials and forge a new blade starting at the recipe's grade."""
+    player = get_object_or_404(Player, user=request.user)
+    recipe = next((r for r in BLADE_RECIPES if r['id'] == recipe_id), None)
+    if not recipe:
+        return JsonResponse({'error': 'Unknown recipe.'}, status=400)
+
+    # Check that the player has all required materials
+    missing = []
+    for mat_name, qty_needed in recipe['materials']:
+        mat_item = Item.objects.filter(name=mat_name, item_type='material').first()
+        if not mat_item:
+            missing.append(mat_name)
+            continue
+        inv_entry = player.inventory.filter(item=mat_item).first()
+        have = inv_entry.quantity if inv_entry else 0
+        if have < qty_needed:
+            missing.append(f"{mat_name} ({have}/{qty_needed})")
+
+    if missing:
+        return JsonResponse({'error': f"Missing materials: {', '.join(missing)}"}, status=400)
+
+    # Deduct materials
+    for mat_name, qty_needed in recipe['materials']:
+        mat_item = Item.objects.get(name=mat_name, item_type='material')
+        inv_entry = player.inventory.get(item=mat_item, player=player)
+        inv_entry.quantity -= qty_needed
+        if inv_entry.quantity <= 0:
+            inv_entry.delete()
+        else:
+            inv_entry.save()
+
+    # Reset forge to the recipe's starting grade
+    forge_state, _ = ForgeState.objects.get_or_create(player=player)
+    forge_state.material_grade = recipe['grade']
+    forge_state.heat = 0.0
+    forge_state.density = 0.0
+    forge_state.update_blade_bonuses()
+    forge_state.save()
+
+    return JsonResponse({
+        'message': f"⚔️ {recipe['name']} forged! The blade hums with new potential.",
+        'grade': forge_state.get_material_name(),
+        'blade_attack_bonus': forge_state.blade_attack_bonus,
+        'blade_defense_bonus': forge_state.blade_defense_bonus,
+        'heat_limit': round(forge_state.get_heat_limit(), 0),
     })
 
