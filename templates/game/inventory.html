@@ -47,8 +47,28 @@
 {% else %}
 <div class="card" style="text-align:center;padding:3rem">
   <div style="font-size:3rem;margin-bottom:1rem">🎒</div>
-  <p style="color:var(--text-muted)">Your inventory is empty. Defeat enemies to find items!</p>
+  <p style="color:var(--text-muted)">Your gear inventory is empty. Defeat enemies to find items!</p>
   <a href="{% url 'game:combat_select' %}" class="btn btn-danger" style="margin-top:1rem">⚔️ Go Fight!</a>
+</div>
+{% endif %}
+
+{% if materials %}
+<div class="card craft-section" style="margin-top:1.4rem;padding-top:1.2rem">
+  <div class="card-title">⚒️ Forge Materials</div>
+  <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">
+    Used in the <a href="{% url 'game:forge' %}" style="color:var(--secondary)">🔨 Forge</a> to craft higher-grade blades. Drops from non-boss enemies.
+  </p>
+  <div class="grid-4">
+    {% for inv in materials %}
+    <div class="item-card" style="border-color:#6b48a8">
+      <div class="item-icon">{{ inv.item.icon }}</div>
+      <div class="item-name">{{ inv.item.name }}</div>
+      <div class="item-rarity rarity-{{ inv.item.rarity }}">{{ inv.item.get_rarity_display }}</div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin:0.3rem 0">{{ inv.item.description }}</div>
+      <div class="material-drop-badge" style="margin-top:0.5rem;display:inline-block">× {{ inv.quantity }}</div>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 {% endif %}
 {% endblock %}

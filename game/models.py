@@ -229,6 +229,7 @@ class CombatLog(models.Model):
     gold_gained = models.IntegerField(default=0)
     item_dropped = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True)
     turns = models.IntegerField(default=0)
+    variant = models.CharField(max_length=20, default='normal')
     log_text = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

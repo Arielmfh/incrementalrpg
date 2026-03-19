@@ -69,6 +69,7 @@ def dashboard(request):
     player = get_object_or_404(Player, user=request.user)
     recent_combats = player.combat_logs.all()[:5]
     chests = player.chests.select_related('chest').all()
+    forge_state = ForgeState.objects.filter(player=player).first()
     return render(request, 'game/dashboard.html', {
         'player': player,
         'recent_combats': recent_combats,
@@ -76,6 +77,8 @@ def dashboard(request):
         'attack': player.compute_attack(),
         'defense': player.compute_defense(),
         'crit_chance': round(player.compute_crit_chance() * 100, 1),
+        'forge_state': forge_state,
+        'heat_limit': forge_state.get_heat_limit() if forge_state else 0,
     })
 
 
@@ -205,6 +208,7 @@ def combat_fight(request, enemy_id):
         gold_gained=result['gold_gained'],
         item_dropped=dropped_item,
         turns=result['turns'],
+        variant=variant,
         log_text=result['log'],
     )
 
@@ -363,9 +367,12 @@ def allocate_stat(request):
 def inventory(request):
     player = get_object_or_404(Player, user=request.user)
     inv_items = player.inventory.select_related('item').all()
+    gear = inv_items.exclude(item__item_type='material')
+    materials = inv_items.filter(item__item_type='material')
     return render(request, 'game/inventory.html', {
         'player': player,
-        'inventory': inv_items,
+        'inventory': gear,
+        'materials': materials,
     })
 
 

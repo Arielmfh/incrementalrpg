@@ -99,6 +99,7 @@
       {% for log in recent_combats %}
         <div class="stat-row" style="border-bottom:1px solid var(--border);padding:0.4rem 0">
           <span style="font-size:0.85rem">
+            {% if log.variant == 'shiny' %}<span class="variant-badge variant-shiny">✨</span>{% elif log.variant == 'blighted' %}<span class="variant-badge variant-blighted">☠️</span>{% endif %}
             vs <strong>{{ log.enemy_name }}</strong>
             <span class="badge badge-{% if log.enemy_level <= player.level %}normal{% else %}elite{% endif %}" style="margin-left:0.3rem">Lv {{ log.enemy_level }}</span>
           </span>
@@ -129,4 +130,45 @@
     {% endif %}
   </div>
 </div>
+
+{% if forge_state %}
+<div class="card" style="margin-top:1.2rem">
+  <div class="card-title">🔨 The Infinite Blade</div>
+  <div class="grid-2" style="gap:0.8rem">
+    <div>
+      <div class="stat-row">
+        <span class="stat-label">🏆 Grade</span>
+        <span class="stat-value highlight">{{ forge_state.get_material_name }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">🔥 Heat</span>
+        <span class="stat-value">{{ forge_state.heat|floatformat:0 }} / {{ heat_limit|floatformat:0 }}</span>
+      </div>
+      <div class="hp-bar-wrap" style="margin:0.3rem 0">
+        <div class="hp-bar" style="width:{{ forge_state.heat_percent }}%;background:linear-gradient(90deg,#e05555,#f8a24b)"></div>
+      </div>
+      <div class="stat-row" style="margin-top:0.4rem">
+        <span class="stat-label">⚒️ Density</span>
+        <span class="stat-value">{{ forge_state.density|floatformat:1 }}</span>
+      </div>
+    </div>
+    <div>
+      <div class="stat-row">
+        <span class="stat-label">⚔️ Blade ATK</span>
+        <span class="stat-value highlight" style="color:#fc8181">+{{ forge_state.blade_attack_bonus }}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">🛡️ Blade DEF</span>
+        <span class="stat-value highlight" style="color:#68d391">+{{ forge_state.blade_defense_bonus }}</span>
+      </div>
+      <div style="margin-top:0.8rem;font-size:0.82rem;color:var(--text-muted);font-style:italic">
+        "{{ forge_state.get_blade_voice }}"
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:0.9rem">
+    <a href="{% url 'game:forge' %}" class="btn btn-secondary btn-sm">🔨 Go to Forge</a>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
