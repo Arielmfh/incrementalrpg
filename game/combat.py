@@ -143,13 +143,12 @@ def run_combat(player, enemy, player_uses_skill=False, variant='normal'):
 
 def pick_random_enemy(enemies_qs, player_level):
     """
-    Pick a random enemy from queryset, weighted towards enemies near player level.
+    Pick a random enemy from queryset or list, weighted towards enemies near player level.
     Higher level enemies have a small random chance of appearing.
     """
-    if not enemies_qs.exists():
-        return None
-
     enemies = list(enemies_qs)
+    if not enemies:
+        return None
     weights = []
     for e in enemies:
         diff = abs(e.base_level - player_level)

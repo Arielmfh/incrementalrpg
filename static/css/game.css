@@ -604,3 +604,63 @@ a:hover { text-decoration: underline; }
   gap: 0.1rem;
 }
 .forge-bonus-row:last-child { border-bottom: none; }
+
+/* ── Combat variant badges ─────────────────────────────────────────────────── */
+.variant-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+  margin-right: 0.35rem;
+}
+.variant-shiny {
+  background: linear-gradient(135deg, #1a3a5c, #2563a8);
+  color: #a8d8ff;
+  box-shadow: 0 0 8px rgba(100, 180, 255, 0.5);
+}
+.variant-blighted {
+  background: linear-gradient(135deg, #3a1a1a, #6b1a1a);
+  color: #ffaaaa;
+  box-shadow: 0 0 8px rgba(200, 50, 50, 0.5);
+}
+
+/* ── Material drop badge (combat result) ──────────────────────────────────── */
+.material-drop-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: #2a1a3a;
+  border: 1px solid #6b48a8;
+  border-radius: 10px;
+  color: #c4a8f7;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* ── Blade crafting section ───────────────────────────────────────────────── */
+.craft-section {
+  border-top: 2px solid var(--border);
+}
+
+.craft-recipe-card {
+  background: #12121f;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  transition: border-color 0.2s;
+}
+.craft-recipe-card.craft-ready {
+  border-color: var(--secondary);
+  box-shadow: 0 0 10px rgba(224, 163, 42, 0.2);
+}
+
+.craft-mat-ok      { color: var(--success); font-weight: 600; }
+.craft-mat-missing { color: #e05555; font-weight: 600; }
+
+.craft-btn {
+  width: 100%;
+  margin-top: 0.3rem;
+  justify-content: center;
+}

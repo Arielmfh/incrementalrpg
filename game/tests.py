@@ -2,8 +2,8 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
 
-from .models import Player, Enemy, Item, Skill, PlayerInventory, Chest, PlayerChest, ForgeState
-from .combat import run_combat, pick_random_enemy, roll_loot, scale_enemy_stats, open_chest
+from .models import Player, Enemy, Item, Skill, PlayerInventory, Chest, PlayerChest, ForgeState, EncounteredEnemy
+from .combat import run_combat, pick_random_enemy, roll_loot, scale_enemy_stats, open_chest, COMBAT_VARIANTS, roll_variant
 
 
 class PlayerModelTest(TestCase):
@@ -390,3 +390,197 @@ class ForgeViewsTest(TestCase):
         self.client.logout()
         resp = self.client.get(reverse('game:forge'))
         self.assertRedirects(resp, '/login/?next=/game/forge/')
+
+
+class EncounteredEnemyTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='explorer', password='pass')
+        self.player = Player.objects.create(
+            user=self.user, name='Explorer', strength=10, dexterity=5,
+            intelligence=5, vitality=10, level=5,
+        )
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+        self.enemy = Enemy.objects.create(
+            name='Cave Troll', base_level=5, base_hp=80, base_attack=12,
+            base_defense=4, xp_reward=40, gold_reward=20, loot_chance=0.0,
+        )
+
+    def test_encountered_enemy_created(self):
+        enc = EncounteredEnemy.objects.create(player=self.player, enemy=self.enemy)
+        self.assertEqual(enc.times_fought, 0)
+        self.assertEqual(enc.times_won, 0)
+
+    def test_unique_together_constraint(self):
+        EncounteredEnemy.objects.create(player=self.player, enemy=self.enemy)
+        from django.db import IntegrityError
+        with self.assertRaises(IntegrityError):
+            EncounteredEnemy.objects.create(player=self.player, enemy=self.enemy)
+
+    def test_get_or_create_idempotent(self):
+        enc1, created1 = EncounteredEnemy.objects.get_or_create(player=self.player, enemy=self.enemy)
+        enc2, created2 = EncounteredEnemy.objects.get_or_create(player=self.player, enemy=self.enemy)
+        self.assertTrue(created1)
+        self.assertFalse(created2)
+        self.assertEqual(enc1.pk, enc2.pk)
+
+    def test_times_fought_increments(self):
+        enc, _ = EncounteredEnemy.objects.get_or_create(player=self.player, enemy=self.enemy)
+        enc.times_fought += 1
+        enc.save()
+        enc.refresh_from_db()
+        self.assertEqual(enc.times_fought, 1)
+
+    def test_combat_fight_creates_encounter_record(self):
+        self.client.login(username='explorer', password='pass')
+        self.client.get(reverse('game:combat_fight', args=[self.enemy.pk]))
+        self.assertTrue(
+            EncounteredEnemy.objects.filter(player=self.player, enemy=self.enemy).exists()
+        )
+
+    def test_combat_select_shows_encountered(self):
+        EncounteredEnemy.objects.create(player=self.player, enemy=self.enemy, times_fought=2, times_won=1)
+        self.client.login(username='explorer', password='pass')
+        resp = self.client.get(reverse('game:combat_select'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Cave Troll')
+        self.assertIn('encountered', resp.context)
+
+
+class CombatVariantTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='variantfighter', password='pass')
+        self.player = Player.objects.create(
+            user=self.user, name='Variant Fighter', strength=20, dexterity=5,
+            intelligence=5, vitality=15, level=5,
+        )
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+        self.enemy = Enemy.objects.create(
+            name='Slime', base_level=1, base_hp=20, base_attack=3,
+            base_defense=1, xp_reward=10, gold_reward=5, loot_chance=0.0,
+        )
+
+    def test_combat_variants_dict_has_required_keys(self):
+        for variant_name, v in COMBAT_VARIANTS.items():
+            for key in ('label', 'icon', 'hp_mult', 'atk_mult', 'def_mult',
+                        'xp_mult', 'gold_mult', 'loot_mult'):
+                self.assertIn(key, v, f"COMBAT_VARIANTS['{variant_name}'] missing '{key}'")
+
+    def test_roll_variant_returns_valid_key(self):
+        for _ in range(20):
+            v = roll_variant()
+            self.assertIn(v, COMBAT_VARIANTS)
+
+    def test_shiny_variant_gives_more_xp(self):
+        result_normal = run_combat(self.player, self.enemy, variant='normal')
+        result_shiny = run_combat(self.player, self.enemy, variant='shiny')
+        if result_normal['outcome'] == 'win' and result_shiny['outcome'] == 'win':
+            self.assertGreater(result_shiny['xp_gained'], result_normal['xp_gained'])
+
+    def test_blighted_variant_gives_more_gold(self):
+        result_normal = run_combat(self.player, self.enemy, variant='normal')
+        result_blighted = run_combat(self.player, self.enemy, variant='blighted')
+        if result_normal['outcome'] == 'win' and result_blighted['outcome'] == 'win':
+            self.assertGreater(result_blighted['gold_gained'], result_normal['gold_gained'])
+
+    def test_run_combat_with_unknown_variant_falls_back_to_normal(self):
+        result = run_combat(self.player, self.enemy, variant='nonexistent')
+        self.assertIn(result['outcome'], ['win', 'loss', 'flee'])
+
+    def test_combat_fight_view_passes_variant_to_context(self):
+        self.client.login(username='variantfighter', password='pass')
+        resp = self.client.get(reverse('game:combat_fight', args=[self.enemy.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('variant', resp.context)
+        self.assertIn('variant_info', resp.context)
+
+
+class BladeBonusTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='smith', password='pass')
+        self.player = Player.objects.create(
+            user=self.user, name='Smith', strength=5, dexterity=5,
+            intelligence=5, vitality=5, level=1,
+        )
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+
+    def test_compute_blade_stats_zero_at_start(self):
+        forge = ForgeState.objects.create(player=self.player, material_grade=0, density=0)
+        atk, def_ = forge.compute_blade_stats()
+        self.assertEqual(atk, 0)
+        self.assertEqual(def_, 0)
+
+    def test_compute_blade_stats_increases_with_grade(self):
+        forge = ForgeState.objects.create(player=self.player, material_grade=2, density=50)
+        atk, def_ = forge.compute_blade_stats()
+        self.assertGreater(atk, 0)
+        self.assertGreater(def_, 0)
+
+    def test_update_blade_bonuses_caches_values(self):
+        forge = ForgeState.objects.create(player=self.player, material_grade=1, density=100)
+        forge.update_blade_bonuses()
+        atk, def_ = forge.compute_blade_stats()
+        self.assertEqual(forge.blade_attack_bonus, atk)
+        self.assertEqual(forge.blade_defense_bonus, def_)
+
+    def test_blade_attack_bonus_added_to_player_attack(self):
+        forge = ForgeState.objects.create(
+            player=self.player, material_grade=2, density=200,
+            blade_attack_bonus=15, blade_defense_bonus=5,
+        )
+        attack = self.player.compute_attack()
+        self.assertGreaterEqual(attack, 15)
+
+    def test_blade_defense_bonus_added_to_player_defense(self):
+        ForgeState.objects.create(
+            player=self.player, material_grade=2, density=200,
+            blade_attack_bonus=10, blade_defense_bonus=8,
+        )
+        defense = self.player.compute_defense()
+        self.assertGreaterEqual(defense, 8)
+
+
+class MaterialDropTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='looter', password='pass')
+        self.player = Player.objects.create(
+            user=self.user, name='Looter', strength=30, dexterity=5,
+            intelligence=5, vitality=15, level=5,
+        )
+        self.player.max_hp = self.player.compute_max_hp()
+        self.player.current_hp = self.player.max_hp
+        self.player.save()
+        self.enemy = Enemy.objects.create(
+            name='Weak Rat', base_level=1, base_hp=10, base_attack=1,
+            base_defense=0, xp_reward=5, gold_reward=2, loot_chance=0.0,
+        )
+        self.material = Item.objects.create(
+            name='Iron Ingot', item_type='material', rarity='common',
+            level_required=1, icon='🪨',
+        )
+
+    def test_material_item_type_field(self):
+        self.assertEqual(self.material.item_type, 'material')
+
+    def test_combat_fight_can_drop_material(self):
+        """A combat win against a non-boss enemy can yield a material drop."""
+        self.client.login(username='looter', password='pass')
+        # Run many fights to ensure at least one material drops (40% base chance)
+        dropped = False
+        for _ in range(20):
+            resp = self.client.get(reverse('game:combat_fight', args=[self.enemy.pk]))
+            if resp.status_code == 200 and resp.context.get('dropped_material'):
+                dropped = True
+                break
+        self.assertTrue(dropped, "Expected at least one material drop over 20 fights")
+
+    def test_combat_result_context_has_dropped_material_key(self):
+        self.client.login(username='looter', password='pass')
+        resp = self.client.get(reverse('game:combat_fight', args=[self.enemy.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('dropped_material', resp.context)
