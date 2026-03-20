@@ -254,6 +254,26 @@ class ViewsTest(TestCase):
         self.player.refresh_from_db()
         self.assertGreater(self.player.current_hp, self.player.max_hp - 30)
 
+    def test_inventory_view_passes_equipped_slots(self):
+        """inventory view passes equipped_weapon and equipped_armor context variables."""
+        self.client.login(username='viewuser', password='pass123')
+        weapon = Item.objects.create(name='Test Sword', item_type='weapon', attack_bonus=5)
+        armor = Item.objects.create(name='Test Shield', item_type='armor', defense_bonus=3)
+        wi = PlayerInventory.objects.create(player=self.player, item=weapon, quantity=1, equipped=True)
+        ai = PlayerInventory.objects.create(player=self.player, item=armor, quantity=1, equipped=True)
+        resp = self.client.get(reverse('game:inventory'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['equipped_weapon'], wi)
+        self.assertEqual(resp.context['equipped_armor'], ai)
+
+    def test_inventory_view_empty_slots_when_nothing_equipped(self):
+        """equipped_weapon and equipped_armor are None when no items are equipped."""
+        self.client.login(username='viewuser', password='pass123')
+        resp = self.client.get(reverse('game:inventory'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(resp.context['equipped_weapon'])
+        self.assertIsNone(resp.context['equipped_armor'])
+
 
 
 class ForgeStateModelTest(TestCase):

@@ -3,7 +3,104 @@
 {% block content %}
 <div class="page-title">🎒 Inventory</div>
 
+<!-- ── Character Equipment Panel ───────────────────────────────────────── -->
+<div class="equip-panel">
+  <div class="equip-panel-header">⚔️ Equipped Gear</div>
+  <div class="equip-panel-body">
+
+    <!-- Equipment slots -->
+    <div class="equip-slots">
+
+      <!-- Weapon slot -->
+      <div class="equip-slot {% if equipped_weapon %}equip-slot-filled{% endif %}">
+        <div class="equip-slot-label">🗡️ Weapon</div>
+        {% if equipped_weapon %}
+          <div class="equip-slot-icon">{{ equipped_weapon.item.icon }}</div>
+          <div class="equip-slot-name rarity-{{ equipped_weapon.item.rarity }}">{{ equipped_weapon.item.name }}</div>
+          <div class="equip-slot-rarity rarity-{{ equipped_weapon.item.rarity }}">{{ equipped_weapon.item.get_rarity_display }}</div>
+          <div class="equip-slot-stats">
+            {% if equipped_weapon.item.attack_bonus > 0 %}<span class="stat-atk">+{{ equipped_weapon.item.attack_bonus }} ATK</span>{% endif %}
+            {% if equipped_weapon.item.defense_bonus > 0 %}<span class="stat-def">+{{ equipped_weapon.item.defense_bonus }} DEF</span>{% endif %}
+            {% if equipped_weapon.item.hp_bonus > 0 %}<span class="stat-hp">+{{ equipped_weapon.item.hp_bonus }} HP</span>{% endif %}
+          </div>
+          <form method="post" action="{% url 'game:equip_item' equipped_weapon.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-warning" style="width:100%;margin-top:0.5rem">Unequip</button>
+          </form>
+        {% else %}
+          <div class="equip-slot-empty-icon">🔲</div>
+          <div class="equip-slot-empty-text">No weapon equipped</div>
+        {% endif %}
+      </div>
+
+      <!-- Armor slot -->
+      <div class="equip-slot {% if equipped_armor %}equip-slot-filled{% endif %}">
+        <div class="equip-slot-label">🛡️ Armor</div>
+        {% if equipped_armor %}
+          <div class="equip-slot-icon">{{ equipped_armor.item.icon }}</div>
+          <div class="equip-slot-name rarity-{{ equipped_armor.item.rarity }}">{{ equipped_armor.item.name }}</div>
+          <div class="equip-slot-rarity rarity-{{ equipped_armor.item.rarity }}">{{ equipped_armor.item.get_rarity_display }}</div>
+          <div class="equip-slot-stats">
+            {% if equipped_armor.item.attack_bonus > 0 %}<span class="stat-atk">+{{ equipped_armor.item.attack_bonus }} ATK</span>{% endif %}
+            {% if equipped_armor.item.defense_bonus > 0 %}<span class="stat-def">+{{ equipped_armor.item.defense_bonus }} DEF</span>{% endif %}
+            {% if equipped_armor.item.hp_bonus > 0 %}<span class="stat-hp">+{{ equipped_armor.item.hp_bonus }} HP</span>{% endif %}
+          </div>
+          <form method="post" action="{% url 'game:equip_item' equipped_armor.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-warning" style="width:100%;margin-top:0.5rem">Unequip</button>
+          </form>
+        {% else %}
+          <div class="equip-slot-empty-icon">🔲</div>
+          <div class="equip-slot-empty-text">No armor equipped</div>
+        {% endif %}
+      </div>
+
+    </div><!-- /equip-slots -->
+
+    <!-- Character stats summary -->
+    <div class="equip-stats-summary">
+      <div class="equip-stats-title">Character Stats</div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label">⚔️ Attack</span>
+        <span class="equip-stat-value stat-atk">{{ player.compute_attack }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label">🛡️ Defense</span>
+        <span class="equip-stat-value stat-def">{{ player.compute_defense }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label">❤️ Max HP</span>
+        <span class="equip-stat-value stat-hp">{{ player.max_hp }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label">🎯 Crit</span>
+        <span class="equip-stat-value stat-crit">{{ player.compute_crit_chance|floatformat:0 }}%</span>
+      </div>
+      <div class="equip-stat-divider"></div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label equip-stat-label-muted">💪 Strength</span>
+        <span class="equip-stat-value">{{ player.strength }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label equip-stat-label-muted">🏃 Dexterity</span>
+        <span class="equip-stat-value">{{ player.dexterity }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label equip-stat-label-muted">🧠 Intelligence</span>
+        <span class="equip-stat-value">{{ player.intelligence }}</span>
+      </div>
+      <div class="equip-stat-row">
+        <span class="equip-stat-label equip-stat-label-muted">💖 Vitality</span>
+        <span class="equip-stat-value">{{ player.vitality }}</span>
+      </div>
+    </div><!-- /equip-stats-summary -->
+
+  </div><!-- /equip-panel-body -->
+</div><!-- /equip-panel -->
+
+<!-- ── Gear Inventory Grid ─────────────────────────────────────────────── -->
 {% if inventory %}
+<div class="card-title" style="margin-top:1.6rem;margin-bottom:0.8rem">🎒 All Gear</div>
 <div class="grid-4">
   {% for inv in inventory %}
   <div class="item-card {% if inv.equipped %}equipped{% endif %}">
@@ -14,10 +111,10 @@
 
     <!-- Stat bonuses -->
     <div style="font-size:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem;margin:0.3rem 0">
-      {% if inv.item.attack_bonus > 0 %}<span style="color:#fc8181">+{{ inv.item.attack_bonus }} ATK</span>{% endif %}
-      {% if inv.item.defense_bonus > 0 %}<span style="color:#68d391">+{{ inv.item.defense_bonus }} DEF</span>{% endif %}
-      {% if inv.item.hp_bonus > 0 %}<span style="color:#fc8181">+{{ inv.item.hp_bonus }} HP</span>{% endif %}
-      {% if inv.item.hp_restore > 0 %}<span style="color:#68d391">Restore {{ inv.item.hp_restore }} HP</span>{% endif %}
+      {% if inv.item.attack_bonus > 0 %}<span class="stat-atk">+{{ inv.item.attack_bonus }} ATK</span>{% endif %}
+      {% if inv.item.defense_bonus > 0 %}<span class="stat-def">+{{ inv.item.defense_bonus }} DEF</span>{% endif %}
+      {% if inv.item.hp_bonus > 0 %}<span class="stat-hp">+{{ inv.item.hp_bonus }} HP</span>{% endif %}
+      {% if inv.item.hp_restore > 0 %}<span class="stat-def">Restore {{ inv.item.hp_restore }} HP</span>{% endif %}
     </div>
 
     <div style="font-size:0.8rem;color:var(--text-muted)">Qty: {{ inv.quantity }}</div>
@@ -45,13 +142,14 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card" style="text-align:center;padding:3rem">
+<div class="card" style="text-align:center;padding:3rem;margin-top:1.4rem">
   <div style="font-size:3rem;margin-bottom:1rem">🎒</div>
   <p style="color:var(--text-muted)">Your gear inventory is empty. Defeat enemies to find items!</p>
   <a href="{% url 'game:combat_select' %}" class="btn btn-danger" style="margin-top:1rem">⚔️ Go Fight!</a>
 </div>
 {% endif %}
 
+<!-- ── Forge Materials ─────────────────────────────────────────────────── -->
 {% if materials %}
 <div class="card craft-section" style="margin-top:1.4rem;padding-top:1.2rem">
   <div class="card-title">⚒️ Forge Materials</div>
@@ -72,3 +170,4 @@
 </div>
 {% endif %}
 {% endblock %}
+

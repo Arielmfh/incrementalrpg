@@ -214,6 +214,120 @@ a:hover { text-decoration: underline; }
 .item-name { font-weight: 700; font-size: 0.95rem; }
 .item-rarity { font-size: 0.78rem; font-weight: 600; }
 
+/* Stat colors shared across inventory + equipment panel */
+.stat-atk  { color: #fc8181; }
+.stat-def  { color: #68d391; }
+.stat-hp   { color: #fc8181; }
+.stat-crit { color: var(--secondary); }
+
+/* ── Character Equipment Panel ── */
+.equip-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.4rem;
+  box-shadow: var(--shadow);
+}
+.equip-panel-header {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--secondary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.equip-panel-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr 280px;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .equip-panel-body { grid-template-columns: 1fr 1fr; }
+  .equip-stats-summary { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .equip-panel-body { grid-template-columns: 1fr; }
+}
+
+/* Individual equipment slot */
+.equip-slot {
+  background: var(--bg-card2);
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  transition: border-color 0.2s;
+}
+.equip-slot.equip-slot-filled {
+  border-style: solid;
+  border-color: var(--secondary);
+  background: #2a2010;
+}
+.equip-slot-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.2rem;
+}
+.equip-slot-icon { font-size: 2rem; }
+.equip-slot-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.equip-slot-rarity { font-size: 0.75rem; font-weight: 600; }
+.equip-slot-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+  font-size: 0.78rem;
+}
+.equip-slot-empty-icon { font-size: 2rem; opacity: 0.25; }
+.equip-slot-empty-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin-top: 0.2rem;
+}
+
+/* Stats summary sidebar */
+.equip-stats-summary {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+.equip-stats-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--secondary);
+  margin-bottom: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.equip-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+}
+.equip-stat-label { color: var(--text-light); }
+.equip-stat-label-muted { color: var(--text-muted); }
+.equip-stat-value { font-weight: 700; color: var(--text-light); }
+.equip-stat-divider {
+  border-top: 1px solid var(--border);
+  margin: 0.5rem 0;
+}
+
 /* ── Enemy cards in combat select ── */
 .enemy-card {
   background: var(--bg-card2);

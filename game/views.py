@@ -369,10 +369,14 @@ def inventory(request):
     inv_items = player.inventory.select_related('item').all()
     gear = inv_items.exclude(item__item_type='material')
     materials = inv_items.filter(item__item_type='material')
+    equipped_weapon = inv_items.filter(item__item_type='weapon', equipped=True).first()
+    equipped_armor = inv_items.filter(item__item_type='armor', equipped=True).first()
     return render(request, 'game/inventory.html', {
         'player': player,
         'inventory': gear,
         'materials': materials,
+        'equipped_weapon': equipped_weapon,
+        'equipped_armor': equipped_armor,
     })
 
 
