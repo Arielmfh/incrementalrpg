@@ -94,6 +94,15 @@ class Command(BaseCommand):
                  icon='💊', hp_restore=120, level_required=3, gold_value=50),
             dict(name='Large Health Potion', description='Restores 250 HP.', item_type='potion', rarity='rare',
                  icon='🍶', hp_restore=250, level_required=7, gold_value=100),
+            # Weapon materials (used in forge crafting)
+            dict(name='Iron Ingot', description='A raw iron ingot, useful for forging blades.',
+                 item_type='material', rarity='common', icon='🪙', level_required=1, gold_value=5),
+            dict(name='Steel Bar', description='A refined steel bar, stronger than iron.',
+                 item_type='material', rarity='uncommon', icon='🔩', level_required=5, gold_value=15),
+            dict(name='Mythril Ore', description='Rare mystical ore that hums with energy.',
+                 item_type='material', rarity='rare', icon='💎', level_required=10, gold_value=40),
+            dict(name='Star Dust', description='Dust from fallen stars. Almost impossibly rare.',
+                 item_type='material', rarity='legendary', icon='⭐', level_required=15, gold_value=100),
         ]
         created = 0
         for data in items_data:
@@ -103,70 +112,56 @@ class Command(BaseCommand):
         self.stdout.write(f'  Created {created} items.')
 
     def create_skills(self):
-        # Tier 1 Skills
-        s1, _ = Skill.objects.get_or_create(name='Power Strike', defaults=dict(
-            description='Your attacks hit harder. +5 attack.',
+        # ── Branch A: The Art of the Strike (attack type) ───────────────────
+        # attack_bonus = extra heat per click in the forge
+        a1, _ = Skill.objects.get_or_create(name='Heavy Swing', defaults=dict(
+            description='A powerful downward strike. +10 heat per forge click.',
             skill_type='attack', tier=1, level_required=1, stat_points_cost=1,
-            attack_bonus=5, icon='💪'
+            attack_bonus=10, icon='🔨',
         ))
-        s2, _ = Skill.objects.get_or_create(name='Iron Skin', defaults=dict(
-            description='Toughen your skin. +5 defense.',
-            skill_type='defense', tier=1, level_required=1, stat_points_cost=1,
-            defense_bonus=5, icon='🛡️'
-        ))
-        s3, _ = Skill.objects.get_or_create(name='Vital Force', defaults=dict(
-            description='Expand your life force. +30 max HP.',
-            skill_type='defense', tier=1, level_required=1, stat_points_cost=1,
-            hp_bonus=30, icon='❤️'
-        ))
-        s4, _ = Skill.objects.get_or_create(name='Swift Strikes', defaults=dict(
-            description='Learn to strike more precisely. +5% crit chance.',
-            skill_type='attack', tier=1, level_required=2, stat_points_cost=1,
-            crit_chance_bonus=0.05, icon='⚡'
-        ))
-
-        # Tier 2 Skills (require Tier 1)
-        s5, _ = Skill.objects.get_or_create(name='Berserker Rage', defaults=dict(
-            description='Channel rage into power. +12 attack.',
+        a2, _ = Skill.objects.get_or_create(name='Rhythmic Hammering', defaults=dict(
+            description='Timed strikes grant a 2× heat multiplier. +20 heat per click.',
             skill_type='attack', tier=2, level_required=5, stat_points_cost=2,
-            attack_bonus=12, parent_skill=s1, icon='😡'
+            attack_bonus=20, parent_skill=a1, icon='🎵',
         ))
-        s6, _ = Skill.objects.get_or_create(name='Steel Fortress', defaults=dict(
-            description='Near-impenetrable defense. +12 defense, +20 HP.',
-            skill_type='defense', tier=2, level_required=5, stat_points_cost=2,
-            defense_bonus=12, hp_bonus=20, parent_skill=s2, icon='🏰'
-        ))
-        s7, _ = Skill.objects.get_or_create(name='Battle Hardened', defaults=dict(
-            description='Veteran combat experience. +50 max HP.',
-            skill_type='defense', tier=2, level_required=5, stat_points_cost=2,
-            hp_bonus=50, parent_skill=s3, icon='⚔️'
-        ))
-        s8, _ = Skill.objects.get_or_create(name='Assassin\'s Mark', defaults=dict(
-            description='Master of critical strikes. +10% crit chance.',
-            skill_type='attack', tier=2, level_required=6, stat_points_cost=2,
-            crit_chance_bonus=0.10, parent_skill=s4, icon='🎯'
+        a3, _ = Skill.objects.get_or_create(name='Spark Shower', defaults=dict(
+            description='Each strike has a 5% chance to generate Ember Dust.',
+            skill_type='attack', tier=3, level_required=10, stat_points_cost=3,
+            crit_chance_bonus=0.05, parent_skill=a2, icon='✨',
         ))
 
-        # Tier 3 Skills (require Tier 2)
-        s9, _ = Skill.objects.get_or_create(name='Warlord\'s Edge', defaults=dict(
-            description='The power of a warlord. +25 attack.',
-            skill_type='attack', tier=3, level_required=10, stat_points_cost=3,
-            attack_bonus=25, parent_skill=s5, icon='👑'
+        # ── Branch B: The Automated Bellows (utility type) ──────────────────
+        b1, _ = Skill.objects.get_or_create(name='Apprentice', defaults=dict(
+            description='An apprentice automatically strikes the forge every 2 seconds.',
+            skill_type='utility', tier=1, level_required=1, stat_points_cost=1,
+            icon='👦',
         ))
-        s10, _ = Skill.objects.get_or_create(name='Titan\'s Guard', defaults=dict(
-            description='Legendary defensive mastery. +25 defense, +100 HP.',
+        b2, _ = Skill.objects.get_or_create(name='Steam Powered Bellows', defaults=dict(
+            description='Keeps the forge hot while away. Earns offline progress.',
+            skill_type='utility', tier=2, level_required=5, stat_points_cost=2,
+            parent_skill=b1, icon='⚙️',
+        ))
+        b3, _ = Skill.objects.get_or_create(name='Magical Catalyst', defaults=dict(
+            description='Automates Tempering so the blade evolves while you sleep.',
+            skill_type='utility', tier=3, level_required=10, stat_points_cost=3,
+            parent_skill=b2, icon='🌀',
+        ))
+
+        # ── Branch C: Metallurgical Secrets (defense type) ──────────────────
+        c1, _ = Skill.objects.get_or_create(name='Carbon Folding', defaults=dict(
+            description='Ancient technique. Increases max Heat limit by 50%.',
+            skill_type='defense', tier=1, level_required=1, stat_points_cost=1,
+            icon='⚗️',
+        ))
+        c2, _ = Skill.objects.get_or_create(name='Quenching Mastery', defaults=dict(
+            description='Swift cooling increases Density gain by 50% per strike.',
+            skill_type='defense', tier=2, level_required=5, stat_points_cost=2,
+            parent_skill=c1, icon='💧',
+        ))
+        c3, _ = Skill.objects.get_or_create(name='Soul Binding', defaults=dict(
+            description='25% of Heat and Density is preserved when you Temper the blade.',
             skill_type='defense', tier=3, level_required=10, stat_points_cost=3,
-            defense_bonus=25, hp_bonus=100, parent_skill=s6, icon='🗿'
-        ))
-        s11, _ = Skill.objects.get_or_create(name='Champion\'s Vitality', defaults=dict(
-            description='A champion\'s body and spirit. +150 max HP.',
-            skill_type='defense', tier=3, level_required=10, stat_points_cost=3,
-            hp_bonus=150, parent_skill=s7, icon='🏆'
-        ))
-        s12, _ = Skill.objects.get_or_create(name='Death\'s Touch', defaults=dict(
-            description='Every strike can be lethal. +15% crit chance, +10 attack.',
-            skill_type='attack', tier=3, level_required=11, stat_points_cost=3,
-            crit_chance_bonus=0.15, attack_bonus=10, parent_skill=s8, icon='💀'
+            parent_skill=c2, icon='💎',
         ))
         self.stdout.write('  Created/verified skills.')
 
@@ -186,8 +181,12 @@ class Command(BaseCommand):
             chest, was_created = Chest.objects.get_or_create(name=data['name'], defaults=data)
             if was_created:
                 created += 1
-            # Add some items to each chest
-            all_items = list(Item.objects.all())
+            # Add items to each chest (exclude materials from lower-tier chests)
+            all_items = list(Item.objects.exclude(item_type='material').all())
+            materials = list(Item.objects.filter(item_type='material').all())
+            if data['chest_type'] in ('golden', 'legendary'):
+                # Higher chests can contain materials
+                all_items += materials
             if all_items:
                 chest.possible_items.set(all_items)
         self.stdout.write(f'  Created {created} chests.')

@@ -72,14 +72,24 @@ class Player(models.Model):
         equipped_bonus = sum(
             inv.item.attack_bonus for inv in self.inventory.filter(equipped=True)
         )
-        return 5 + self.strength * 2 + skill_bonus + equipped_bonus
+        forge_bonus = 0
+        try:
+            forge_bonus = self.forge_state.blade_attack_bonus
+        except Exception:
+            pass
+        return 5 + self.strength * 2 + skill_bonus + equipped_bonus + forge_bonus
 
     def compute_defense(self):
         skill_bonus = sum(s.defense_bonus for s in self.skills.all())
         equipped_bonus = sum(
             inv.item.defense_bonus for inv in self.inventory.filter(equipped=True)
         )
-        return 2 + self.vitality + skill_bonus + equipped_bonus
+        forge_bonus = 0
+        try:
+            forge_bonus = self.forge_state.blade_defense_bonus
+        except Exception:
+            pass
+        return 2 + self.vitality + skill_bonus + equipped_bonus + forge_bonus
 
     def compute_crit_chance(self):
         skill_bonus = sum(s.crit_chance_bonus for s in self.skills.all())
@@ -156,6 +166,7 @@ class Item(models.Model):
         ('armor', 'Armor'),
         ('potion', 'Potion'),
         ('chest', 'Chest'),
+        ('material', 'Material'),
     ]
     RARITY_CHOICES = [
         ('common', 'Common'),
@@ -218,6 +229,7 @@ class CombatLog(models.Model):
     gold_gained = models.IntegerField(default=0)
     item_dropped = models.ForeignKey(Item, on_delete=models.SET_NULL, null=True, blank=True)
     turns = models.IntegerField(default=0)
+    variant = models.CharField(max_length=20, default='normal')
     log_text = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -261,4 +273,99 @@ class PlayerChest(models.Model):
 
     def __str__(self):
         return f"{self.player.name} - {self.chest.name} x{self.quantity}"
+
+
+class EncounteredEnemy(models.Model):
+    """Tracks which enemies a player has discovered/fought at least once."""
+    player = models.ForeignKey(Player, on_delete=models.CASCADE, related_name='encountered_enemies')
+    enemy = models.ForeignKey(Enemy, on_delete=models.CASCADE)
+    times_fought = models.IntegerField(default=0)
+    times_won = models.IntegerField(default=0)
+    first_seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('player', 'enemy')
+
+    def __str__(self):
+        return f"{self.player.name} × {self.enemy.name}"
+
+
+class ForgeState(models.Model):
+    """Tracks the state of a player's Infinite Blade forge."""
+
+    MATERIAL_GRADES = [
+        (0, 'Bronze'),
+        (1, 'Steel'),
+        (2, 'Mythril'),
+        (3, 'Star-Iron'),
+    ]
+    HEAT_LIMIT_BASE = 1000.0
+    # Density thresholds for blade sentience messages
+    _VOICE_THRESHOLD_MAX   = 1000
+    _VOICE_THRESHOLD_HIGH  = 500
+    _VOICE_THRESHOLD_MID   = 100
+    _VOICE_THRESHOLD_LOW   = 10
+
+    player = models.OneToOneField(Player, on_delete=models.CASCADE, related_name='forge_state')
+    heat = models.FloatField(default=0.0)
+    density = models.FloatField(default=0.0)
+    material_grade = models.IntegerField(default=0)
+    temper_count = models.IntegerField(default=0)
+    ember_dust = models.FloatField(default=0.0)
+    total_strikes = models.IntegerField(default=0)
+    last_active = models.DateTimeField(auto_now=True)
+    # Cached combat bonuses granted to the player by the current blade
+    blade_attack_bonus = models.IntegerField(default=0)
+    blade_defense_bonus = models.IntegerField(default=0)
+
+    def get_material_name(self):
+        return dict(self.MATERIAL_GRADES).get(self.material_grade, 'Unknown')
+
+    def get_heat_limit(self):
+        """Max heat before tempering, scaled by material grade and Carbon Folding skill."""
+        base = self.HEAT_LIMIT_BASE * (1 + self.material_grade * 0.5)
+        if self.player.skills.filter(name='Carbon Folding').exists():
+            base *= 1.5
+        return base
+
+    def heat_percent(self):
+        limit = self.get_heat_limit()
+        if limit == 0:
+            return 0
+        return min(100.0, round((self.heat / limit) * 100, 1))
+
+    def can_temper(self):
+        return self.heat >= self.get_heat_limit()
+
+    def compute_blade_stats(self):
+        """Return (attack_bonus, defense_bonus) from current material grade + density."""
+        g = self.material_grade
+        d = self.density
+        # Each grade tier provides a base bonus and improves density scaling.
+        attack = g * 8 + int(d / max(1, 10 - g * 2))
+        defense = g * 3 + int(d / max(1, 30 - g * 5))
+        return attack, defense
+
+    def update_blade_bonuses(self):
+        """Recompute and cache the blade combat bonuses. Call after heat/grade changes."""
+        self.blade_attack_bonus, self.blade_defense_bonus = self.compute_blade_stats()
+
+    def get_blade_voice(self):
+        """Sentience lines that grow as the blade evolves."""
+        if self.material_grade == 3 and self.density >= self._VOICE_THRESHOLD_MAX:
+            return "I am complete. I am legend. Feed me more souls."
+        if self.material_grade >= 2:
+            return "My edge cuts through reality itself… do not stop."
+        if self.material_grade >= 1:
+            return "I feel… different. Stronger. Hungrier."
+        if self.density >= self._VOICE_THRESHOLD_HIGH:
+            return "Temper me, smith. I am ready to be reborn."
+        if self.density >= self._VOICE_THRESHOLD_MID:
+            return "Strike harder. I can feel your power."
+        if self.density >= self._VOICE_THRESHOLD_LOW:
+            return "I hunger for more heat…"
+        return "…"
+
+    def __str__(self):
+        return f"{self.player.name}'s Forge [{self.get_material_name()}]"
 

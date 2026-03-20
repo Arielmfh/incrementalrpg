@@ -19,7 +19,10 @@
     <div class="card-title">📊 Battle Summary</div>
     <div class="stat-row">
       <span class="stat-label">Opponent</span>
-      <span class="stat-value">{{ enemy.icon }} {{ enemy.name }} (Lv {{ result.enemy_level }})</span>
+      <span class="stat-value">
+        {% if variant_info.icon %}<span class="variant-badge variant-{{ variant }}">{{ variant_info.icon }} {{ variant_info.label }}</span>{% endif %}
+        {{ enemy.icon }} {{ enemy.name }} (Lv {{ result.enemy_level }})
+      </span>
     </div>
     <div class="stat-row">
       <span class="stat-label">Outcome</span>
@@ -43,6 +46,12 @@
     <div class="stat-row">
       <span class="stat-label">🎁 Item Drop</span>
       <span class="stat-value rarity-{{ dropped_item.rarity }}">{{ dropped_item.icon }} {{ dropped_item.name }}</span>
+    </div>
+    {% endif %}
+    {% if dropped_material %}
+    <div class="stat-row">
+      <span class="stat-label">⚒️ Material</span>
+      <span class="stat-value material-drop-badge">{{ dropped_material.icon }} {{ dropped_material.name }}</span>
     </div>
     {% endif %}
 

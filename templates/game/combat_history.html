@@ -21,7 +21,14 @@
     <tbody>
       {% for log in logs %}
       <tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:0.5rem;font-weight:600">{{ log.enemy_name }}</td>
+        <td style="padding:0.5rem;font-weight:600">
+          {% if log.variant == 'shiny' %}
+            <span class="variant-badge variant-shiny">✨ Shiny</span>
+          {% elif log.variant == 'blighted' %}
+            <span class="variant-badge variant-blighted">☠️ Blighted</span>
+          {% endif %}
+          {{ log.enemy_name }}
+        </td>
         <td style="padding:0.5rem;text-align:center">{{ log.enemy_level }}</td>
         <td style="padding:0.5rem;text-align:center" class="outcome-{{ log.outcome }}">
           {% if log.outcome == 'win' %}✅ Win{% elif log.outcome == 'loss' %}❌ Loss{% else %}🏃 Fled{% endif %}

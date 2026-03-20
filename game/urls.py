@@ -28,4 +28,10 @@ urlpatterns = [
     path('game/inventory/<int:inv_id>/use/', views.use_item, name='use_item'),
     path('game/chests/', views.chests_view, name='chests'),
     path('game/chests/<int:player_chest_id>/open/', views.open_chest_view, name='open_chest'),
+
+    # Forge – The Infinite Blade
+    path('game/forge/', views.forge_view, name='forge'),
+    path('game/forge/strike/', views.forge_strike, name='forge_strike'),
+    path('game/forge/temper/', views.forge_temper, name='forge_temper'),
+    path('game/forge/craft/<str:recipe_id>/', views.forge_craft_blade, name='forge_craft_blade'),
 ]

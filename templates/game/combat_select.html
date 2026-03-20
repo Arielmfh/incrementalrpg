@@ -3,30 +3,40 @@
 {% block content %}
 <div class="page-title">⚔️ Choose Your Battle</div>
 
-<div style="margin-bottom:1.2rem;display:flex;gap:0.8rem;align-items:center">
-  <a href="{% url 'game:combat_random' %}" class="btn btn-danger btn-lg">🎲 Random Battle!</a>
-  <span style="color:var(--text-muted);font-size:0.85rem">Face a random enemy suited to your level</span>
+<!-- Explore button -->
+<div style="margin-bottom:1.2rem;display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap">
+  <a href="{% url 'game:combat_random' %}" class="btn btn-danger btn-lg">🌍 Explore!</a>
+  <span style="color:var(--text-muted);font-size:0.85rem">
+    Venture out and discover enemies — you might encounter someone new!
+    {% if undiscovered_count %}
+    <span style="color:var(--secondary)">({{ undiscovered_count }} undiscovered)</span>
+    {% endif %}
+  </span>
 </div>
 
-{% if normal_enemies %}
+<!-- Encountered enemies -->
+{% if encountered %}
 <div class="card" style="margin-bottom:1.2rem">
-  <div class="card-title">🗺️ Enemies Near Your Level (Lv {{ player.level }})</div>
+  <div class="card-title">🗺️ Known Enemies (Lv {{ player.level }})</div>
   <div class="grid-3">
-    {% for enemy in normal_enemies %}
-    <a href="{% url 'game:combat_fight' enemy.pk %}" style="text-decoration:none;color:inherit">
+    {% for enc in encountered %}
+    <a href="{% url 'game:combat_fight' enc.enemy.pk %}" style="text-decoration:none;color:inherit">
       <div class="enemy-card">
-        <div class="enemy-icon">{{ enemy.icon }}</div>
-        <div style="font-weight:700">{{ enemy.name }}</div>
+        <div class="enemy-icon">{{ enc.enemy.icon }}</div>
+        <div style="font-weight:700">{{ enc.enemy.name }}</div>
         <div style="margin:0.3rem 0">
-          <span class="badge badge-{{ enemy.enemy_type }}">{{ enemy.get_enemy_type_display }}</span>
-          <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.4rem">Lv {{ enemy.base_level }}</span>
+          <span class="badge badge-{{ enc.enemy.enemy_type }}">{{ enc.enemy.get_enemy_type_display }}</span>
+          <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.4rem">Lv {{ enc.enemy.base_level }}</span>
         </div>
-        <div style="font-size:0.8rem;color:var(--text-muted)">{{ enemy.description }}</div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">{{ enc.enemy.description }}</div>
         <div style="margin-top:0.6rem;font-size:0.8rem;display:flex;gap:0.6rem;flex-wrap:wrap">
-          <span>❤️ {{ enemy.base_hp }}</span>
-          <span>⚔️ {{ enemy.base_attack }}</span>
-          <span>🛡️ {{ enemy.base_defense }}</span>
-          <span style="color:var(--secondary)">✨ {{ enemy.xp_reward }} XP</span>
+          <span>❤️ {{ enc.enemy.base_hp }}</span>
+          <span>⚔️ {{ enc.enemy.base_attack }}</span>
+          <span>🛡️ {{ enc.enemy.base_defense }}</span>
+          <span style="color:var(--secondary)">✨ {{ enc.enemy.xp_reward }} XP</span>
+        </div>
+        <div style="margin-top:0.4rem;font-size:0.75rem;color:var(--text-muted)">
+          Fought {{ enc.times_fought }}× · Won {{ enc.times_won }}×
         </div>
       </div>
     </a>
@@ -35,37 +45,11 @@
 </div>
 {% endif %}
 
-{% if hard_enemies %}
+{% if not encountered %}
 <div class="card">
-  <div class="card-title">💀 Hard Challenges (Higher Level)</div>
-  <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1rem">These enemies are significantly stronger. Proceed with caution!</p>
-  <div class="grid-3">
-    {% for enemy in hard_enemies %}
-    <a href="{% url 'game:combat_fight' enemy.pk %}" style="text-decoration:none;color:inherit">
-      <div class="enemy-card hard">
-        <div class="enemy-icon">{{ enemy.icon }}</div>
-        <div style="font-weight:700">{{ enemy.name }}</div>
-        <div style="margin:0.3rem 0">
-          <span class="badge badge-{{ enemy.enemy_type }}">{{ enemy.get_enemy_type_display }}</span>
-          <span style="color:var(--text-muted);font-size:0.8rem;margin-left:0.4rem">Lv {{ enemy.base_level }}</span>
-        </div>
-        <div style="font-size:0.8rem;color:var(--text-muted)">{{ enemy.description }}</div>
-        <div style="margin-top:0.6rem;font-size:0.8rem;display:flex;gap:0.6rem;flex-wrap:wrap">
-          <span>❤️ {{ enemy.base_hp }}</span>
-          <span>⚔️ {{ enemy.base_attack }}</span>
-          <span>🛡️ {{ enemy.base_defense }}</span>
-          <span style="color:var(--secondary)">✨ {{ enemy.xp_reward }} XP</span>
-        </div>
-      </div>
-    </a>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-{% if not normal_enemies and not hard_enemies %}
-<div class="card">
-  <p style="color:var(--text-muted)">No enemies available. Ask the admin to populate game data.</p>
+  <p style="color:var(--text-muted)">
+    You haven't discovered any enemies yet — hit <strong>Explore!</strong> to venture out.
+  </p>
 </div>
 {% endif %}
 {% endblock %}
